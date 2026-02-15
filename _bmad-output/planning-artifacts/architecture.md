@@ -351,6 +351,35 @@ No envelope for WebSocket events — typed by event name.
 
 ## Project Structure & Boundaries
 
+### Repository Structure (Multi-Repo Strategy)
+
+**Architecture Decision:** The project uses a **dual-repository structure** for separation of concerns:
+
+1. **Main Repository** (`pm-arbitrage-system/`):
+   - Planning artifacts (`_bmad-output/planning-artifacts/`: PRD, architecture, epics)
+   - Implementation artifacts (`_bmad-output/implementation-artifacts/`: story files, sprint status)
+   - Project documentation (`docs/`, `CLAUDE.md`)
+   - BMAD workflow configuration (`_bmad/`)
+
+2. **Engine Repository** (`pm-arbitrage-system/pm-arbitrage-engine/`):
+   - **Nested git repository** with independent commit history
+   - All implementation code (NestJS backend)
+   - Tests, CI/CD pipelines, Docker configuration
+   - Database migrations (Prisma)
+   - **Not tracked in main repo** (appears as untracked directory `??`)
+
+**Rationale:**
+- **Clean separation** between planning/documentation (main repo) and implementation (engine repo)
+- **Independent versioning** for engine releases vs documentation updates
+- **Simplified engine deployment** (engine repo can be deployed without carrying planning artifacts)
+- **BMAD workflow isolation** (BMAD agents work in main repo, code changes in engine repo)
+
+**Important:** Changes in `pm-arbitrage-engine/` are **NOT tracked by main repo**. Story completion requires commits in **BOTH repos**:
+1. Main repo: Story file, sprint status updates
+2. Engine repo: Implementation code, tests
+
+**Alternative Considered (Not Chosen):** Git submodule integration. Rejected due to complexity of submodule workflows for solo developer environment.
+
 ### Complete Project Directory Structure (pm-arbitrage-engine)
 
 ```

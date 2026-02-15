@@ -15,8 +15,10 @@ classification:
   domain: "fintech"
   complexity: "high"
   projectContext: "greenfield"
-lastEdited: '2026-02-10'
+lastEdited: '2026-02-14'
 editHistory:
+  - date: '2026-02-14'
+    changes: 'Token optimization - Removed duplicated content across 4 zones: (1) Slimmed Executive Summary success metrics/decision gates (detail lives in Success Criteria), (2) Removed Journey Requirements Summary (duplicated each journeys Requirements Revealed), (3) Removed Domain-Specific Risk Mitigations subsection (duplicated Risk Mitigation Strategy section), (4) Condensed API Backend module boundaries (FR organization already communicates structure). ~300 lines removed, zero information loss.'
   - date: '2026-02-10'
     changes: 'Major PRD improvements - Added: Executive Summary, Functional Requirements section (60+ FRs), State Recovery, Deployment/Infrastructure, Concurrent Execution, Error Catalog, Alerting Fallback, Time Sync, Opportunity Baseline, Correlation Framework, Knowledge Base Schema, Price Normalization. Fixed: Uptime conflict, single-leg threshold conflict. Refined: Regulatory scanning, backtesting scope. Renamed: User Journeys → Operational Workflows. Removed: Vendor names (4 locations).'
 ---
@@ -36,46 +38,13 @@ Institutional-grade automated trading system exploiting cross-platform arbitrage
 
 **Strategy:** Phase 1 (Months 1-12) = Pure arbitrage with operational autonomy. Phase 2 (Month 12+) = Layer news-velocity alpha signals if arbitrage data reveals patterns. Phase 3 (18-24 months) = Optional infrastructure productization or institutional scaling.
 
-### Success Dashboard - Key Metrics
+### Key Metrics Summary
 
-**MVP Validation (Months 1-3):**
+**MVP (Months 1-3):** 100+ completed cycles, profit factor >1.2, net edge 0.4%+, hit rate >65%, zero contract matching errors, <5 single-leg events/month.
 
-| Metric | Target | Alert Threshold | Status |
-|--------|--------|-----------------|---------|
-| Completed Cycles | 100+ cycles | <20 cycles/month | Track |
-| Profit Factor | >1.2 | <1.0 for 30 days | Track |
-| Net Edge per Cycle | 0.4%+ after costs | <0.2% sustained | Track |
-| Hit Rate | >65% | <50% sustained | Track |
-| Contract Matching Errors | 0 (zero tolerance) | 1 error = halt | Critical |
-| Single-Leg Events | <5/month | >1/week for 3 weeks | Track |
+**Phase 1 (Months 3-12):** 99% uptime (active hours), 30-45 min daily operator time, 100:1 autonomy ratio by Month 6, 15%+ annualized return, Sharpe >1.5, max drawdown <15%, 15-25 open pairs, execution quality >0.7.
 
-**Phase 1 Operational (Months 3-12):**
-
-| Metric | Target | Alert Threshold | Status |
-|--------|--------|-----------------|---------|
-| System Uptime | 99% (active hours) | <98% sustained | Track |
-| Daily Operator Time | 30-45 min | >60 min sustained | Track |
-| Autonomy Ratio | 100:1 by Month 6 | <50:1 sustained | Track |
-| Net Annualized Return | 15%+ | <10% on 90-day trail | Critical |
-| Sharpe Ratio | >1.5 (target 2.0) | <1.5 for 2 months | Track |
-| Max Drawdown | <15% target | >20% alert, 25% halt | Critical |
-| Open Positions | 15-25 pairs | <10 sustained = underutilized | Track |
-| Execution Quality Ratio | >0.7 (70% of edge captured) | <0.6 for 10 days | Alert |
-
-**Phase 1 Success Gates (Month 6):**
-- Capital at or near full deployment ($100K-$250K)
-- 48-hour test passed at least twice (weekend away, system operates autonomously)
-- Contract matching knowledge base covers 50+ validated pairs
-- System handled multiple adverse scenarios autonomously (platform outage, risk limit approached, single-leg exposure)
-- Operator spending time on Phase 2 research (not Phase 1 maintenance)
-
-**12-Month Checkpoint (Proceed/Scale/Wind Down):**
-- 12 consecutive months operation with no losing month after Q1
-- Cumulative returns met 15% annualized target
-- Max drawdown stayed <20% (within 25% hard limit)
-- System adapted to at least one significant market change without redesign
-- Expanded to at least one additional platform beyond initial Polymarket/Kalshi pair
-- Phase 2 news-velocity layer in development OR concluded non-viable based on data (both acceptable)
+**Decision Gates:** Formal proceed/extend/wind-down checkpoints at 3, 6, and 12 months. See Success Criteria section for detailed metrics, thresholds, and gate conditions.
 
 ### Architectural Pillars (Phase 1)
 
@@ -87,20 +56,7 @@ Institutional-grade automated trading system exploiting cross-platform arbitrage
 
 ### Risk-Adjusted Decision Gates
 
-**3-Month Gate (Is the Edge Real?):**
-- **Proceed to Scale:** Profit factor >1.3 over 100+ cycles, execution within 40% of backtest → Scale capital to 25%
-- **Extend Validation:** Profit factor 1.0-1.3 or <100 cycles → Continue at minimum capital 4-6 weeks
-- **Shut Down:** Profit factor <1.0 over 60+ cycles, OR catastrophic matching failure, OR execution <50% of backtest
-
-**6-Month Gate (Is the Edge Durable and Scalable?):**
-- **Shift to Phase 2:** All three conditions met (8+ weeks stability, sufficient data for hypotheses, 30-45 min daily involvement) → Begin Phase 2 research parallel to Phase 1
-- **Continue Phase 1:** Profitable but not operationally steady → Focus on hardening, reassess Phase 2 at month 9
-- **Scale Down/Shut Down:** Returns <10% annualized on 90-day trail OR max drawdown >20% OR edge degrading
-
-**12-Month Gate (Is This a Durable Business?):**
-- **Expand & Evolve:** Phase 2 promising + arbitrage durable + competitive position strong → Scale capital, explore fund structure
-- **Maintain & Harvest:** Arbitrage works but edge compressing, Phase 2 not viable → Continue at current scale as income stream
-- **Wind Down:** Edge compressed, risk-adjusted returns no longer justify complexity → Close over 2-4 weeks, document learnings
+Each checkpoint (3/6/12 months) has three outcomes: proceed/scale, extend/continue, or wind down. Detailed gate criteria and decision outcomes specified in Success Criteria → Business Success section.
 
 ## Success Criteria
 
@@ -728,52 +684,6 @@ Tax advisor receives annual export: `2026-tax-report.csv` with complete trade lo
 
 At 12-month checkpoint, if Arbi brings on technical help, the codebase must be well-structured and documented for onboarding. This is a design implication (code quality, documentation standards) rather than a user journey. The operational infrastructure should be documented in runbooks covering deployment, monitoring, common failure scenarios, and clear separation between trading logic and operational infrastructure. This enables eventual handoff without requiring a separate journey map at this stage.
 
----
-
-### Journey Requirements Summary
-
-These four journeys reveal the core capabilities needed across the system:
-
-**From Journey 1 (MVP Deployment Through Validation):**
-- Real-time alerting system (Telegram integration)
-- Single-leg exposure detection with full context notifications
-- Manual contract matching approval workflow
-- CSV-based trade logging for daily review
-- Success gate metrics tracking (cycles, profit factor, hit rate, errors)
-
-**From Journey 2 (Steady State Operations):**
-- Lightweight web dashboard (2-minute morning scan, mobile-friendly)
-- Contract matching approval interface with side-by-side comparison
-- NLP confidence scoring with auto-approval thresholds
-- Manual decision logging and knowledge base accumulation
-- Weekly performance summaries and metric tracking
-- Autonomy ratio calculation and trending
-
-**From Journey 3 (Edge Case / Adverse Scenario Handling):**
-- Platform API health monitoring with automatic degradation detection
-- Graceful degradation protocols (cancel orders, stop new positions, maintain monitoring)
-- Automatic recovery when APIs restore
-- High-priority alerting for adverse scenarios
-- Detailed incident audit logs for post-mortem analysis
-- Correlation exposure tracking with automatic limit enforcement
-- Manual intervention interface for operator decisions
-
-**From Journey 4 (Legal Counsel Quarterly Review):**
-- Automated quarterly compliance report generation
-- Complete audit trail export with arbitrage rationale documentation
-- Wash trading analysis and anti-spoofing compliance checks
-- Platform relationship health reporting
-- Regulatory horizon scanning (CFTC, hearings, platform status)
-- Audit logs designed for legal review (timestamp correlation, cancellation rationale)
-
-**Cross-Cutting Capabilities:**
-- Multi-platform integration (Polymarket, Kalshi)
-- Real-time order book aggregation and normalization
-- Execution engine with near-simultaneous cross-platform coordination
-- Risk management (position sizing, correlation limits, daily loss limits)
-- Model-driven exit framework (five-criteria continuous recalculation)
-- Portfolio-level monitoring and optimization
-
 ## Functional Requirements
 
 ### Overview
@@ -988,34 +898,6 @@ Functional requirements define the capabilities the system must provide, organiz
 - Platform email announcements with subject containing "regulatory", "compliance", "terms": Forward to operator inbox immediately
 
 **No AI/NLP Analysis Required:** All monitoring uses simple keyword matching, RSS parsing, and API polling - implementable with standard tools without machine learning or natural language understanding.
-
-### Risk Mitigations
-
-**Platform Adverse Action Detection:**
-- **Challenge:** System cannot directly know if trading activity has been flagged by platform compliance
-- **Indirect signal monitoring:**
-  - Unexpected API errors (403 Forbidden, new error codes not in documentation)
-  - Rate limit reductions (previously 1000 req/min, now 500 req/min without announcement)
-  - Delayed trade fills (execution latency suddenly 10x slower)
-  - Account restriction emails (forwarded to system monitoring inbox)
-- **Anomalous pattern detection:** Log all API response codes, alert when error rate exceeds 5% of requests or new error types appear
-- **Manual escalation:** High-severity alert to operator for investigation, potential pause on affected platform
-
-**Compliance Configuration Management:**
-- **Per-platform rules:** Maintain compliance configuration specifying which contract categories are tradeable based on entity domicile and platform restrictions
-- **Validation before execution:** Before placing any order, validate contract category against compliance matrix for that platform
-- **Reject non-compliant trades:** Hard block on trades that violate compliance rules, with clear operator notification of why trade was rejected
-
-**Data Retention & Audit Readiness:**
-- **7-year retention enforced:** Automated retention policy prevents deletion of required records
-- **Tamper-evident logging:** Trade logs cryptographically signed or stored in append-only structure
-- **Export on demand:** Ability to generate compliant audit trail exports (CSV, JSON) for any time period within retention window
-- **Legal review optimization:** Audit trail format designed for legal review, not just operational debugging
-
-**Regulatory Horizon Scanning:**
-- **Automated monitoring:** Track CFTC filings, congressional hearings, platform regulatory status changes
-- **Risk severity categorization:** Low/Medium/High severity alerts based on potential impact
-- **Response playbooks:** Pre-defined actions for different regulatory scenarios (e.g., major adverse ruling → 50% exposure reduction within 24 hours)
 
 ### Opportunity Frequency Baseline
 
@@ -1235,40 +1117,11 @@ Both platforms charge percentage fees, already in compatible format:
 
 **Module Boundaries:**
 
-The system is composed of five core modules with defined interfaces:
+Five core modules aligned with Functional Requirements organization: (1) Data Ingestion — platform API connections, data normalization; (2) Arbitrage Detection — opportunity identification, contract matching; (3) Execution — cross-platform order coordination, leg-risk management; (4) Risk Management — position sizing, correlation limits, portfolio constraints; (5) Monitoring & Alerting — dashboard, alerts, compliance reporting, audit logs.
 
-1. **Data Ingestion Module**
-   - Responsibility: Maintain connections to platform APIs, normalize heterogeneous data into unified internal format
-   - Output: Normalized order book snapshots, platform health status
-   - Interface: Publishes order book updates and platform status to Detection Module
+Data flows: Ingestion → Detection → Execution (with Risk validation at each step) → Monitoring (consumes events from all modules).
 
-2. **Arbitrage Detection Module**
-   - Responsibility: Identify actionable cross-platform arbitrage opportunities
-   - Input: Normalized order book data from Data Ingestion
-   - Output: Opportunity signals with expected edge, confidence scores, and execution parameters
-   - Interface: Publishes opportunities to Execution Module, queries Risk Module for position constraints
-
-3. **Execution Module**
-   - Responsibility: Coordinate near-simultaneous order placement across platforms, manage leg risk
-   - Input: Opportunity signals from Detection, position constraints from Risk
-   - Output: Execution results, single-leg exposure events, fill confirmations
-   - Interface: Sends execution commands to platform APIs via Data Ingestion, reports results to Risk and Monitoring
-
-4. **Risk Management Module**
-   - Responsibility: Enforce position sizing, correlation limits, daily loss limits, portfolio-level constraints
-   - Input: Position requests from Execution, current portfolio state
-   - Output: Approved/rejected position decisions, risk limit alerts
-   - Interface: Provides constraint validation to Execution, alerts to Monitoring
-
-5. **Monitoring & Alerting Module**
-   - Responsibility: Dashboard data aggregation, alert generation, compliance reporting, audit log management
-   - Input: Events from all modules (executions, risks, opportunities, platform health)
-   - Output: Dashboard API, Telegram alerts, compliance reports, audit logs
-   - Interface: Consumes events from all modules, exposes dashboard API, generates exports
-
-**Implementation Flexibility:**
-
-The PRD specifies module boundaries and interfaces. Whether these are in-process modules (MVP) or separate services (Phase 1+) is an implementation decision. The key requirement: modules communicate through defined interfaces that enable future decomposition if needed.
+Whether these are in-process modules (MVP) or separate services (Phase 1+) is an implementation decision. The key requirement: modules communicate through defined interfaces that enable future decomposition if needed.
 
 ### Authentication & Authorization
 

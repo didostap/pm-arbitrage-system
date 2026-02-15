@@ -44,12 +44,12 @@ development_status:
   epic-1-retrospective: done
 
   # EPIC 2: Polymarket Connectivity & Cross-Platform Data
-  epic-2: backlog
-  2-1-polymarket-connector-wallet-authentication: backlog
-  2-2-polymarket-order-book-normalization: backlog
-  2-3-cross-platform-data-aggregation-health-dashboard: backlog
-  2-4-graceful-degradation-automatic-recovery: backlog
-  epic-2-retrospective: optional
+  epic-2: done
+  2-1-polymarket-connector-wallet-authentication: done
+  2-2-polymarket-order-book-normalization: done
+  2-3-cross-platform-data-aggregation-health-dashboard: done
+  2-4-graceful-degradation-automatic-recovery: done
+  epic-2-retrospective: done
 
   # EPIC 3: Arbitrage Detection & Contract Matching
   epic-3: backlog
