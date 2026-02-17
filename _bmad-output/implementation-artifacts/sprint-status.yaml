@@ -52,12 +52,13 @@ development_status:
   epic-2-retrospective: done
 
   # EPIC 3: Arbitrage Detection & Contract Matching
-  epic-3: backlog
-  3-1-manual-contract-pair-configuration: backlog
-  3-2-cross-platform-arbitrage-detection: backlog
-  3-3-edge-calculation-opportunity-filtering: backlog
-  3-4-contract-match-approval-workflow-mvp: backlog
-  epic-3-retrospective: optional
+  epic-3: in-progress
+  epic-3-sprint-0: done # 9h targeted prep: financial math tests, decimal.js setup, config schema + rollback, planning doc alignment
+  3-1-manual-contract-pair-configuration: done
+  3-2-cross-platform-arbitrage-detection: done
+  3-3-edge-calculation-opportunity-filtering: done
+  3-4-contract-match-approval-workflow-mvp: done
+  epic-3-retrospective: done
 
   # EPIC 4: Risk Management & Position Controls
   epic-4: backlog

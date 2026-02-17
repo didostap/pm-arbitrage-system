@@ -798,7 +798,7 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **FR-PI-01 [MVP]:** System shall authenticate with Kalshi using API key-based authentication per platform requirements.
 
-**FR-PI-02 [MVP]:** System shall authenticate with Polymarket using wallet-based authentication (private key signing) for on-chain transactions.
+**FR-PI-02 [MVP]:** System shall authenticate with Polymarket using wallet-based authentication (private key signing) via @polymarket/clob-client SDK. Order execution uses off-chain CLOB API; on-chain transaction handling (deposits, withdrawals, settlement) deferred to Epic 5.
 
 **FR-PI-03 [MVP]:** System shall enforce platform-specific rate limits with 20% safety buffer, queueing requests when approaching limits to prevent platform throttling.
 
@@ -849,7 +849,7 @@ Functional requirements define the capabilities the system must provide, organiz
 - **Pre-emptive slowdown:** Reduce polling frequency before hitting limits (target: <70% utilization)
 - **This is a functional requirement,** not just a metric - system must enforce rate limit compliance to prevent platform restrictions
 
-**Wallet Security (On-Chain Execution):**
+**Wallet Security (Polymarket Authentication):**
 - **MVP standard:** Private keys stored in environment variables, never in code or config files
 - **Phase 1 requirement:** Secrets management service supporting key rotation, audit logging, encryption at rest, and API-based credential retrieval
 - **Hardware wallet consideration:** Ideal for security but adds execution latency - defer evaluation to Phase 1 based on performance requirements
@@ -1135,7 +1135,7 @@ Whether these are in-process modules (MVP) or separate services (Phase 1+) is an
 **Platform API Authentication:**
 
 - **Kalshi:** API key-based authentication per Kalshi platform requirements
-- **Polymarket:** Wallet-based authentication (private key signing) for on-chain transactions
+- **Polymarket:** Wallet-based authentication (private key signing) via @polymarket/clob-client SDK (off-chain CLOB orders; on-chain settlement deferred to Epic 5)
 - **Key Rotation:** Quarterly rotation of platform API keys (operational procedure, not automated system feature)
 - **Secrets Management:** Environment variables (MVP), external secrets manager (Phase 1)
 
@@ -1338,7 +1338,7 @@ Centralized error taxonomy covering all system failure modes with standardized c
 | 2003 | Order Rejected - Platform declined order | Warning | Retry once with fresh price | Investigate rejection reason, check platform status |
 | 2004 | Second Leg Failed After First Filled | Critical | Execute single-leg protocol | Alert operator immediately with P&L scenarios, await decision |
 | 2005 | Gas Estimation Failed (Polymarket) | Warning | Retry with +50% buffer | Monitor gas prices, adjust buffer if sustained failures |
-| 2006 | Transaction Reverted (Polymarket on-chain) | Warning | Retry once, check chain status | Review transaction details, check for contract issues |
+| 2006 | Transaction Reverted (Polymarket on-chain settlement) | Warning | Retry once, check chain status | Review transaction details, check for contract issues. **Note:** Applies to on-chain settlement (Epic 5), not order placement (off-chain CLOB). |
 
 **Risk Limit Breaches (3000-3999):**
 
@@ -1720,8 +1720,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: 95% of connection failures recover automatically within 2 minutes
 
 **NFR-I4: Transaction Confirmation Handling**
-- On-chain transactions (Polymarket): Monitor for confirmation with timeout (default 30 seconds)
-- Handle chain reorganizations: Detect and respond to transaction reversals
-- Gas estimation: Pre-compute with 20% buffer to avoid failed transactions
-- Rationale: On-chain execution has unique failure modes (gas estimation, confirmation delays, reorgs)
-- Measurement: <5% transaction failure rate, 100% of failures properly detected and handled
+- **MVP Scope:** Polymarket order execution is off-chain (CLOB REST API via SDK) with synchronous confirmation — same pattern as Kalshi. NFR-I4 on-chain concerns do not apply to MVP order placement.
+- **Epic 5 Scope (On-Chain Settlement):** Monitor on-chain transactions (deposits, withdrawals, settlement) for confirmation with timeout (default 30 seconds). Handle chain reorganizations. Gas estimation with 20% buffer.
+- Rationale: On-chain execution has unique failure modes (gas estimation, confirmation delays, reorgs) but these only apply to settlement operations, not order placement
+- Measurement: <5% on-chain transaction failure rate, 100% of failures properly detected and handled

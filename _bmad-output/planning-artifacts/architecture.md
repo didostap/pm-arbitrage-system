@@ -31,7 +31,7 @@ Architecturally, the FRs describe a real-time event pipeline: platform data feed
 - **Performance:** 500ms order book normalization (NFR-P1), 1s detection cycle (NFR-P2), <100ms between leg submissions (NFR-P3), 2s dashboard updates (NFR-P4)
 - **Security:** Environment-variable credentials evolving to secrets manager (NFR-S1), zero-downtime key rotation (NFR-S2), 7-year audit trail with complete trade records (NFR-S3), authenticated access (NFR-S4)
 - **Reliability:** 99% uptime during market hours (NFR-R1), per-platform graceful degradation (NFR-R2), 5s single-leg exposure timeout (NFR-R3), 30s platform health detection (NFR-R4), microsecond-timestamped persistence with 7-year retention (NFR-R5)
-- **Integration:** Defensive API parsing (NFR-I1), rate limit enforcement with 20% buffer (NFR-I2), auto-reconnecting WebSockets (NFR-I3), on-chain transaction confirmation handling (NFR-I4)
+- **Integration:** Defensive API parsing (NFR-I1), rate limit enforcement with 20% buffer (NFR-I2), auto-reconnecting WebSockets (NFR-I3), transaction confirmation handling (NFR-I4 — scoped to on-chain settlement in Epic 5; MVP order execution is off-chain CLOB for both platforms)
 
 **Scale & Complexity:**
 
@@ -43,7 +43,7 @@ Architecturally, the FRs describe a real-time event pipeline: platform data feed
 ### Technical Constraints & Dependencies
 
 - **Single long-running stateful process** (MVP) with potential decomposition in Phase 1+
-- **Heterogeneous platform integration:** Kalshi (REST/WebSocket exchange API) vs Polymarket (on-chain Polygon transactions with wallet signing, gas estimation, chain reorganization handling)
+- **Heterogeneous platform integration:** Kalshi (REST/WebSocket exchange API) vs Polymarket (off-chain CLOB API via @polymarket/clob-client SDK + WebSocket; on-chain Polygon interactions limited to deposits/withdrawals/settlement in Epic 5)
 - **SQLite** for structured state persistence (positions, orders, risk state, knowledge base); JSON files for configuration with atomic write-rename pattern
 - **NTP synchronization** required for audit trail compliance (<100ms clock drift tolerance)
 - **Blue/green deployment** for zero-downtime updates with 5-minute observation window and rollback capability
@@ -225,7 +225,7 @@ interface IPlatformConnector {
 1. Project scaffold (NestJS + Fastify + Prisma + Docker Compose + PostgreSQL)
 2. Database schema and first migration (positions, orders, audit log, contract matches, risk state)
 3. Platform connector interface + Kalshi connector (REST API, simpler)
-4. Platform connector interface + Polymarket connector (on-chain, encrypted keystore)
+4. Platform connector interface + Polymarket connector (off-chain CLOB via SDK, wallet auth via private key)
 5. Core module structure (Data Ingestion → Detection → Risk → Execution → Monitoring)
 6. EventEmitter2 integration for fan-out path
 7. Dashboard API (REST endpoints + WebSocket gateway + Swagger)
@@ -532,9 +532,8 @@ pm-arbitrage-engine/
 │   │   └── polymarket/
 │   │       ├── polymarket.connector.ts            # IPlatformConnector implementation
 │   │       ├── polymarket.connector.spec.ts
-│   │       ├── polymarket-chain.client.ts         # On-chain transaction handling via viem
-│   │       ├── polymarket-api.client.ts           # REST API for order book data
-│   │       ├── keystore.service.ts                # AES-256 keystore decryption
+│   │       ├── polymarket-websocket.client.ts      # WebSocket connection management
+│   │       ├── polymarket-auth.service.ts         # SDK-based wallet auth (API key derivation)
 │   │       └── polymarket.types.ts                # Polymarket-specific types
 │   ├── dashboard/
 │   │   ├── dashboard.module.ts

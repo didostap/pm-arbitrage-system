@@ -388,7 +388,8 @@ So that all timestamps are audit-quality and cross-platform timing is reliable.
 ### Epic 2: Polymarket Connectivity & Cross-Platform Data
 Operator can see live normalized order books from both platforms side by side, with health monitoring, degradation detection, and automatic recovery. Cross-platform data foundation is complete.
 **FRs covered:** FR-DI-01 (Polymarket), FR-DI-02 (Polymarket + cross-platform), FR-DI-03, FR-PI-02
-**Additional:** Wallet-based auth, on-chain transaction handling, keystore decryption, WebSocket management, price normalization
+**Additional:** Wallet-based auth via @polymarket/clob-client SDK, WebSocket management, price normalization
+**Epic 2 Implementation Note:** Polymarket orders are off-chain (CLOB REST API via SDK), not on-chain Polygon transactions. On-chain interactions (deposits, withdrawals, settlement) deferred to Epic 5. SDK handles auth internally — IAuthProvider abstraction unnecessary.
 
 ## Epic 2: Polymarket Connectivity & Cross-Platform Data
 
@@ -402,14 +403,16 @@ So that I can access Polymarket's order book and trading API.
 
 **Acceptance Criteria:**
 
-**Given** the Polymarket keystore file exists and `POLYMARKET_KEYSTORE_PASSWORD` is configured
+**Given** `POLYMARKET_PRIVATE_KEY` is configured in environment variables
 **When** the engine starts
-**Then** the keystore is decrypted using AES-256 and the wallet private key is available in memory (FR-PI-02)
-**And** the Polymarket connector authenticates via wallet signing on the Polygon network
+**Then** the @polymarket/clob-client SDK derives API keys from the private key (FR-PI-02)
+**And** the Polymarket connector authenticates via the SDK's built-in wallet signing
+
+> **Implementation Note (Epic 2 Retro):** Original plan specified AES-256 encrypted keystore; actual implementation uses direct private key in env vars with SDK-managed auth. Encrypted keystore deferred to Epic 11 (security hardening).
 
 **Given** the Polymarket connector is initialized
 **When** it connects to Polymarket's APIs
-**Then** REST API client retrieves order book data
+**Then** CLOB REST API client retrieves order book data via @polymarket/clob-client SDK
 **And** WebSocket connection is established for real-time updates
 **And** connection status is logged with platform ID
 
@@ -421,10 +424,10 @@ So that I can access Polymarket's order book and trading API.
 **Given** the Polymarket connector is implemented
 **When** I inspect the code
 **Then** it implements the `IPlatformConnector` interface from `common/interfaces/`
-**And** on-chain transaction handling uses viem for Polygon interactions
-**And** gas estimation includes 20% buffer (NFR-I4)
-**And** on-chain transaction confirmation uses 30-second timeout with chain reorg detection (NFR-I4)
+**And** order submission uses the off-chain CLOB API via @polymarket/clob-client (synchronous REST confirmation, same pattern as Kalshi)
 **And** rate limit enforcement reuses `withRetry()` and `PlatformApiError` from Epic 1
+
+> **Implementation Note (Epic 2 Retro):** Original plan specified on-chain transaction handling via viem with gas estimation and chain reorg detection (NFR-I4). Actual implementation: Polymarket orders are off-chain CLOB (REST API via SDK). On-chain concerns (gas estimation, transaction confirmation, chain reorg handling) apply only to deposits/withdrawals/settlement — deferred to Epic 5.
 
 ### Story 2.2: Polymarket Order Book Normalization
 
@@ -438,13 +441,15 @@ So that cross-platform comparison is possible using a single data structure.
 **When** the normalizer processes it
 **Then** the output matches the `NormalizedOrderBook` schema (same type as Kalshi output)
 **And** Polymarket's decimal probability format is preserved (already 0.00-1.00)
-**And** fee structure is normalized: taker fee as decimal + gas estimate converted to decimal of position size
+**And** fee structure is normalized: taker fee as decimal (gas estimate excluded from normalization — handled at edge calculation time)
 **And** normalization completes within 500ms (95th percentile) (FR-DI-02)
+
+> **Implementation Note (Epic 2 Retro):** Polymarket prices already decimal (0.00-1.00), ~50x faster normalization than Kalshi. Gas estimate not included in normalized fee structure — it's a static conservative estimate ($0.10-0.50) applied during edge calculation (Story 3.3). Dynamic gas estimation deferred to Epic 5.
 
 **Given** a normalized Polymarket price is produced
 **When** validation runs
 **Then** prices outside 0.00-1.00 range are rejected, logged as error, and discarded
-**And** gas estimation failure triggers `PlatformApiError` (code 2005) with retry at +50% buffer
+**And** NaN and null values are caught by defensive validation (NaN guard pattern established in Epic 2)
 
 **Given** Polymarket snapshots are produced
 **When** persistence runs
@@ -565,7 +570,7 @@ So that only genuinely profitable opportunities are surfaced.
 **When** the edge calculator processes it
 **Then** net edge is calculated as: `|Polymarket price - (1 - Kalshi price)| - Polymarket taker fee - Kalshi taker fee - gas estimate` (FR-AD-02)
 **And** fees are sourced from each platform connector's `getFeeSchedule()`
-**And** gas estimate uses the latest viem estimation from the Polymarket connector
+**And** gas estimate uses a static conservative estimate ($0.10-0.50, configurable) converted to decimal of position size (dynamic viem estimation deferred to Epic 5)
 
 **Given** the edge calculator produces a result
 **When** net edge is below the minimum threshold (configurable, default 0.8%)
