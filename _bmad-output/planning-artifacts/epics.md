@@ -616,6 +616,11 @@ Operator's capital is protected by enforced position sizing, portfolio limits, a
 **FRs covered:** FR-RM-01, FR-RM-02, FR-RM-03, FR-RM-04
 **Additional:** Sequential execution locking with atomic risk budget reservation
 
+### Epic 4.5: Pre-Execution Validation Sprint
+Validation and hygiene sprint ensuring upstream pipeline correctness before Epic 5 connects to real platforms. Hard gate — Epic 5 does not start until 4.5 clears.
+**FRs covered:** None (validation and infrastructure hygiene)
+**Additional:** Property-based testing for FinancialMath, pipeline latency instrumentation, shared e2e test config, technical debt consolidation
+
 ## Epic 4: Risk Management & Position Controls
 
 Operator's capital is protected by enforced position sizing, portfolio limits, and daily loss limits. Must be live before first trade.
@@ -728,6 +733,90 @@ So that two simultaneous opportunities can't both pass risk checks and then coll
 **When** I inspect the code
 **Then** it uses a global execution lock (MVP) ensuring only one opportunity is processed at a time
 **And** reservation check + execution happens atomically within the lock
+
+### Epic 4.5: Pre-Execution Validation Sprint
+Validation and hygiene sprint ensuring upstream pipeline correctness before Epic 5 connects to real platforms. Hard gate — Epic 5 does not start until 4.5 clears. Emerged from Epic 4 retrospective after identifying that three consecutive epics failed to deliver retro commitments that existed outside the story system.
+**FRs covered:** None (validation and infrastructure hygiene)
+**Additional:** Property-based testing for FinancialMath, pipeline latency instrumentation, shared e2e test config, technical debt consolidation
+
+## Epic 4.5: Pre-Execution Validation Sprint
+
+Validation and hygiene sprint ensuring upstream pipeline correctness before Epic 5 connects to real platforms with real money. All items are converted retro commitments that were previously skipped because they existed outside the story system. Hard gate: Epic 5 does not start until Epic 4.5 clears.
+
+### Story 4.5.0: Regression Baseline Verification
+
+As an operator,
+I want to confirm all existing tests pass clean on a fresh checkout before adding new tests,
+So that I can distinguish pre-existing failures from new ones introduced during the validation sprint.
+
+**Acceptance Criteria:**
+
+**Given** the pm-arbitrage-engine codebase at the end of Epic 4
+**When** `pnpm test` is run on a clean checkout
+**Then** 484+ tests pass with zero failures
+**And** `pnpm lint` passes with no errors
+**And** this verified count becomes the regression baseline for Stories 4.5.1-4.5.4
+
+### Story 4.5.1: Property-Based Testing for FinancialMath Composition Chain
+
+As an operator,
+I want the financial math composition chain tested with randomized inputs to surface edge cases,
+So that I can trust position sizing and budget reservation calculations with real money.
+
+**Acceptance Criteria:**
+
+**Given** the `fast-check` library is installed
+**When** property-based tests run against the composition chain
+**Then** arbitraries cover: price (0-1), fees (0-5%), gas (0-1), position sizes (10-10000), bankroll (1000-1000000)
+**And** the full chain is tested: `calculateGrossEdge` → `calculateNetEdge` → position sizing → `reserveBudget`
+**And** 1000+ random inputs are generated per test property
+**And** every output is a finite `Decimal` (no NaN, no Infinity, no negative position sizes)
+**And** all existing 484+ tests continue to pass
+
+### Story 4.5.2: Pipeline Latency Instrumentation
+
+As an operator,
+I want each stage of the trading pipeline to log its execution duration,
+So that I can identify performance bottlenecks and measure the impact of the execution lock on cycle time.
+
+**Acceptance Criteria:**
+
+**Given** `TradingEngineService.executeCycle()` runs a full detection → risk → execution cycle
+**When** each pipeline stage completes
+**Then** duration in milliseconds is logged for: detection, edge calculation, risk validation, execution queue processing
+**And** total cycle time is logged
+**And** a documented baseline is established from running 100+ test cycles
+**And** all existing tests continue to pass
+
+### Story 4.5.3: Shared e2e Test Environment Config
+
+As an operator,
+I want all e2e test files to share a single environment configuration,
+So that adding a new env var requires touching one file instead of three.
+
+**Acceptance Criteria:**
+
+**Given** environment variables are currently duplicated across `app.e2e-spec.ts`, `core-lifecycle.e2e-spec.ts`, and `logging.e2e-spec.ts`
+**When** a shared test environment config is extracted
+**Then** all three e2e test files import from a single shared source
+**And** all existing e2e tests pass with the shared config
+**And** adding a new environment variable requires modifying exactly one file
+**And** `pnpm lint` passes with no errors
+
+### Story 4.5.4: Technical Debt Consolidation
+
+As an operator,
+I want all known technical debt and framework gotchas centralized in dedicated files,
+So that accumulated knowledge from Epics 2-4 is discoverable and actionable.
+
+**Acceptance Criteria:**
+
+**Given** technical debt and gotchas are currently scattered across individual story dev notes
+**When** consolidation is complete
+**Then** `technical-debt.md` exists with all known debt items from Epics 2-4, each with: description, priority, target epic, and source story
+**And** `docs/gotchas.md` exists with framework-specific gotchas including: `plainToInstance` defaults, `OnModuleInit` ordering, `ConfigService.get` returning strings, circular import resolution pattern, fire-once event pattern
+**And** each gotcha has a code example showing the problem and solution
+**And** no existing tests or code are modified
 
 ### Epic 5: Trade Execution, Leg Management & Exit Monitoring
 Operator can execute arbitrage trades with near-simultaneous leg submission, single-leg exposure detection/alerting, and automated exit management (take profit, stop loss, time-based). Complete automated trade lifecycle.
