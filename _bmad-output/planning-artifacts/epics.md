@@ -818,6 +818,22 @@ So that accumulated knowledge from Epics 2-4 is discoverable and actionable.
 **And** each gotcha has a code example showing the problem and solution
 **And** no existing tests or code are modified
 
+### Story 4.5.5: Kalshi Order Book Normalization Deduplication
+
+As an operator,
+I want the Kalshi cents-to-decimal and NO-to-YES inversion logic extracted to a single shared utility,
+So that Epic 5 execution code builds on a single source of truth instead of 3 duplicated implementations.
+
+**Acceptance Criteria:**
+
+**Given** Kalshi normalization logic is duplicated in `kalshi.connector.ts`, `kalshi-websocket.client.ts`, and `order-book-normalizer.service.ts`
+**When** deduplication is complete
+**Then** a shared utility exists in `common/utils/` containing the cents-to-decimal conversion and NO-to-YES price inversion
+**And** all three consumers import from the shared utility instead of implementing their own
+**And** all existing 498+ tests pass with zero failures
+**And** `pnpm lint` reports zero errors
+**And** new unit tests cover the shared utility (edge cases: zero price, boundary values 0/100 cents, YES/NO sides)
+
 ### Epic 5: Trade Execution, Leg Management & Exit Monitoring
 Operator can execute arbitrage trades with near-simultaneous leg submission, single-leg exposure detection/alerting, and automated exit management (take profit, stop loss, time-based). Complete automated trade lifecycle.
 **FRs covered:** FR-EX-01, FR-EX-02, FR-EX-03, FR-EX-04, FR-EX-05, FR-EX-06, FR-EM-01

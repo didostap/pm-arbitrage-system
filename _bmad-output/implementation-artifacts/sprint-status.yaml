@@ -69,13 +69,14 @@ development_status:
   epic-4-retrospective: done
 
   # EPIC 4.5: Pre-Execution Validation Sprint (HARD GATE before Epic 5)
-  epic-4-5: backlog
-  4-5-0-regression-baseline-verification: backlog
-  4-5-1-property-based-testing-financial-math-composition-chain: backlog
-  4-5-2-pipeline-latency-instrumentation: backlog
-  4-5-3-shared-e2e-test-environment-config: backlog
-  4-5-4-technical-debt-consolidation: backlog
-  epic-4-5-retrospective: optional
+  epic-4-5: done
+  4-5-0-regression-baseline-verification: done
+  4-5-1-property-based-testing-financial-math-composition-chain: done
+  4-5-2-pipeline-latency-instrumentation: done
+  4-5-3-shared-e2e-test-environment-config: done
+  4-5-4-technical-debt-consolidation: done
+  4-5-5-kalshi-normalization-deduplication: done
+  epic-4-5-retrospective: done
 
   # EPIC 5: Trade Execution, Leg Management & Exit Monitoring
   epic-5: backlog
@@ -144,6 +145,6 @@ development_status:
 # Total Epics: 13 (includes Epic 4.5 validation sprint)
 # Total Stories: 52
 # Total Items (Epics + Stories + Retrospectives): 67
-# Epics done: 4 (Epics 1-4)
-# Stories done: 22 (Epics 1-4 stories + Sprint 0)
-# Retrospectives done: 4 (Epics 1-4)
+# Epics done: 5 (Epics 1-4, 4.5)
+# Stories done: 28 (Epics 1-4 stories + Sprint 0 + Epic 4.5 stories)
+# Retrospectives done: 5 (Epics 1-4, 4.5)
