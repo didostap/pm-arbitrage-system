@@ -209,6 +209,7 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 - **Contract matching errors:** ZERO tolerance. Any matching error halts trading.
 - **Rate limits:** Stay under 70% of platform limits. 20% safety buffer on enforcement.
 - **Position sizing:** Max 3% of bankroll per pair. Correlation cluster max 15%.
+- **Financial math:** ALL financial calculations MUST use `decimal.js` (`Decimal`). NEVER use native JS `*`, `+`, `-`, `/` operators on monetary values — floating-point precision loss is unacceptable (e.g., `0.1 + 0.2 === 0.30000000000000004`). Use `.mul()`, `.plus()`, `.minus()`, `.div()`. When reading Prisma `Decimal` fields, convert via `new Decimal(value.toString())` — `Prisma.Decimal` and `decimal.js Decimal` are different types and cannot be used interchangeably.
 
 ## Environment
 

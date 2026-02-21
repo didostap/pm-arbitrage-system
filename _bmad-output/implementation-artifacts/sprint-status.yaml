@@ -79,13 +79,20 @@ development_status:
   epic-4-5-retrospective: done
 
   # EPIC 5: Trade Execution, Leg Management & Exit Monitoring
-  epic-5: backlog
-  5-1-order-submission-position-tracking: backlog
-  5-2-single-leg-exposure-detection-alerting: backlog
-  5-3-single-leg-resolution-operator-actions: backlog
-  5-4-exit-monitoring-fixed-threshold-exits: backlog
-  5-5-startup-reconciliation-crash-recovery: backlog
-  epic-5-retrospective: optional
+  epic-5: done
+  5-1-order-submission-position-tracking: done
+  5-2-single-leg-exposure-detection-alerting: done
+  5-3-single-leg-resolution-operator-actions: done
+  5-4-exit-monitoring-fixed-threshold-exits: done
+  5-5-startup-reconciliation-crash-recovery: done
+  epic-5-retrospective: done
+
+  # EPIC 5.5: Paper Trading Infrastructure
+  epic-5-5: backlog
+  5-5-1-paper-trading-connector-mode-configuration: backlog
+  5-5-2-paper-position-state-isolation-tracking: backlog
+  5-5-3-mixed-mode-validation-operational-safety: backlog
+  epic-5-5-retrospective: optional
 
   # EPIC 6: Monitoring, Alerting & Compliance Logging
   epic-6: backlog
@@ -142,9 +149,10 @@ development_status:
   epic-12-retrospective: optional
 
 # SUMMARY STATISTICS:
-# Total Epics: 13 (includes Epic 4.5 validation sprint)
-# Total Stories: 52
-# Total Items (Epics + Stories + Retrospectives): 67
-# Epics done: 5 (Epics 1-4, 4.5)
-# Stories done: 28 (Epics 1-4 stories + Sprint 0 + Epic 4.5 stories)
+# Total Epics: 14 (includes Epic 4.5 validation sprint and Epic 5.5 paper trading)
+# Total Stories: 55
+# Total Items (Epics + Stories + Retrospectives): 72
+# Epics done: 6 (Epics 1-5, 4.5)
+# Stories done: 33 (Epics 1-5 stories + Sprint 0 + Epic 4.5 stories)
 # Retrospectives done: 5 (Epics 1-4, 4.5)
+# Note: Epic 5 retrospective is optional and pending

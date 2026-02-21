@@ -987,6 +987,123 @@ So that I can trust the system after a restart or crash — especially if positi
 **Then** results are written via structured JSON logging with reconciliation details (positions matched, discrepancies found, timestamps)
 **And** note: once Epic 6 Story 6.5 deploys the `audit_logs` table with hash chaining, reconciliation results should be retroactively routed through the AuditLogService for tamper-evident persistence
 
+### Epic 5.5: Paper Trading Infrastructure
+Paper trading as a permanent, platform-agnostic system capability. Each platform independently configurable as live or paper. Decorator pattern wraps existing IPlatformConnector implementations — zero changes to live connector code.
+**FRs covered:** FR-DI-05 (new platform connectors without modifying core modules)
+**Additional:** Per-platform fill simulation, `is_paper` state isolation, mixed mode validation
+
+## Epic 5.5: Paper Trading Infrastructure
+
+Paper trading as a permanent, platform-agnostic system capability. Each platform independently configurable as live or paper. Decorator pattern wraps existing IPlatformConnector implementations — zero changes to live connector code.
+
+### Story 5.5.1: Paper Trading Connector & Mode Configuration
+
+As an operator,
+I want to configure any platform connector in paper mode via environment variables,
+So that I can run execution logic against live order books without submitting real orders.
+
+**Acceptance Criteria:**
+
+**Given** `PLATFORM_MODE_KALSHI=paper` is set in environment
+**When** the engine starts
+**Then** the Kalshi connector is wrapped in a PaperTradingConnector decorator
+
+**Given** PaperTradingConnector wraps a live connector
+**When** `getOrderBook()`, `getHealth()`, `onOrderBookUpdate()` are called
+**Then** they proxy transparently to the underlying live connector
+
+**Given** PaperTradingConnector wraps a live connector
+**When** `submitOrder()` is called
+**Then** the order is intercepted locally (never reaches the platform API)
+**And** a simulated fill is generated using configurable parameters
+
+**Given** per-platform fill simulation config exists
+**When** a paper order is submitted for Kalshi
+**Then** fill latency uses `PAPER_FILL_LATENCY_MS_KALSHI` (default: 150ms)
+**And** slippage uses `PAPER_SLIPPAGE_BPS_KALSHI` (default: 5 bps)
+
+**Given** per-platform fill simulation config exists
+**When** a paper order is submitted for Polymarket
+**Then** fill latency uses `PAPER_FILL_LATENCY_MS_POLYMARKET` (default: 800ms)
+**And** slippage uses `PAPER_SLIPPAGE_BPS_POLYMARKET` (default: 15 bps)
+
+**Given** platform mode is set at startup
+**When** the engine is running
+**Then** the mode cannot be changed without a restart (immutable at runtime)
+
+**Given** PaperTradingConnector is active
+**When** any execution event is emitted
+**Then** the event payload includes `isPaper: true` metadata
+
+- `connectors/paper/paper-trading.connector.ts` implements IPlatformConnector via decorator pattern
+- `connectors/paper/fill-simulator.service.ts` handles simulated fill generation
+- `connectors/paper/paper-trading.types.ts` defines PaperTradingConfig, SimulatedFill types
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: decorator proxying, fill simulation, config validation, event metadata
+
+### Story 5.5.2: Paper Position State Isolation & Tracking
+
+As an operator,
+I want paper trading positions tracked separately from live positions,
+So that paper results never contaminate live P&L or risk calculations.
+
+**Acceptance Criteria:**
+
+**Given** the Prisma schema
+**When** migration runs
+**Then** `open_positions` and `orders` tables have an `is_paper` Boolean column (default: false)
+**And** a composite index exists on `(is_paper, status)` for both tables
+
+**Given** paper mode is active for a platform
+**When** a paper order fills
+**Then** the resulting position is persisted with `is_paper = true`
+
+**Given** risk budget queries (position limits, exposure calculations)
+**When** querying positions
+**Then** repository methods filter by `is_paper = false` by default (live-only)
+**And** paper positions have an isolated risk budget that does not affect live limits
+
+**Given** paper positions exist
+**When** the operator views the dashboard
+**Then** paper positions are visually distinct (amber border, `[PAPER]` tag)
+**And** paper P&L is excluded from live summary totals by default (toggle to include)
+
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: repository filtering, isolation verification, migration rollback
+
+### Story 5.5.3: Mixed Mode Validation & Operational Safety
+
+As an operator,
+I want the system to validate mixed mode configurations at startup,
+So that I am protected from invalid or dangerous platform mode combinations.
+
+**Acceptance Criteria:**
+
+**Given** platform mode configuration
+**When** the engine starts
+**Then** startup logs clearly display each platform's mode (`[Kalshi: LIVE] [Polymarket: PAPER]`)
+
+**Given** an invalid mode value (not `live` or `paper`)
+**When** the engine starts
+**Then** startup fails with a clear error message
+
+**Given** mixed mode is active (some platforms live, some paper)
+**When** an arbitrage opportunity spans a live and paper platform
+**Then** the execution proceeds (paper side simulated, live side real)
+**And** the opportunity and resulting positions are tagged with `mixedMode: true`
+
+**Given** all platforms are in paper mode
+**When** the engine starts
+**Then** a startup warning is logged: "All platforms in PAPER mode — no live trading active"
+
+**Given** the engine is running in any mode
+**When** the operator queries system status
+**Then** the API response includes the mode for each platform
+
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: startup validation, mixed mode tagging, mode display in status API
+- E2E test: full cycle with one platform live + one paper, verifying isolation
+
 ### Epic 6: Monitoring, Alerting & Compliance Logging
 Operator receives real-time Telegram alerts, has CSV trade logs for daily review, compliance validation before execution, and complete audit trail. MVP feature set complete.
 **FRs covered:** FR-MA-01, FR-MA-02, FR-MA-03, FR-DE-01, FR-DE-02, FR-PI-05

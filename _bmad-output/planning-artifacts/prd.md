@@ -264,15 +264,31 @@ Business success is evaluated through three formal checkpoints with explicit dec
 
 The MVP is deliberately crude. It's a validation tool, not a production system. If the edge doesn't exist, beautiful infrastructure for a non-working strategy is worthless. If the edge does exist, the MVP will be replaced component-by-component by the full Phase 1 system while continuing to generate returns and collect data.
 
-**Pre-MVP: Backtesting & Paper Trading Scope**
+**Paper Trading — Permanent System Capability**
 
-The product brief references Phase A (backtesting) and Phase B (paper trading) as prerequisites. This PRD scope begins at **Week 1 of live capital deployment** and assumes backtesting has been completed pre-development:
+Paper trading is a permanent, platform-agnostic capability — not a transient development phase. It enables safe validation of execution logic against live market data without capital risk.
 
-- **Backtesting (Phase A - Outside System Scope):** Historical data analysis validating arbitrage thesis, estimating edge magnitude, testing detection logic on past dislocations. Completed manually using historical Polymarket/Kalshi order book data before MVP development begins. Outputs inform MVP parameter selection (minimum edge threshold, position sizing, expected opportunity frequency).
+**Core design:**
+- Decorator pattern wrapping `IPlatformConnector` — any platform can run in paper mode without connector code changes
+- Per-platform configuration via environment variables (mode, fill latency, slippage)
+- Mixed mode operation: each platform independently set to `live` or `paper`
+- Mode is immutable at runtime (requires restart to change)
 
-- **Paper Trading (Phase B - 3-4 Weeks During MVP Development):** MVP system runs in paper trading mode during final development/testing phase (Weeks 3-4 of 4-week build timeline). System detects opportunities, simulates executions, tracks hypothetical P&L. Validates: Detection logic works on live data, platform API integration functional, execution timing feasible.
+**State isolation:**
+- `is_paper` flag on positions and orders — repository-level filtering
+- Paper positions have isolated risk budgets (do not consume live limits)
+- Paper P&L excluded from live summaries by default
 
-- **Live Trading (MVP Week 1+):** System begins real capital deployment at 10% of target ($10K). This PRD describes the live trading system, not the backtesting infrastructure.
+**Ongoing use cases:**
+1. Pre-deployment validation of execution logic changes
+2. New platform connector onboarding (safe testing before capital commitment)
+3. Strategy parameter experimentation in parallel with live trading
+
+**Out of scope (future consideration):**
+- Historical replay / backtesting engine (replay recorded order books through paper trading)
+- Paper trading analytics dashboard (dedicated views beyond position tagging)
+
+**Backtesting (Outside System Scope):** Historical data analysis validating arbitrage thesis, estimating edge magnitude, testing detection logic on past dislocations. Completed manually using historical order book data. Outputs inform parameter selection (minimum edge threshold, position sizing, expected opportunity frequency).
 
 **Core Features:**
 
