@@ -987,14 +987,208 @@ So that I can trust the system after a restart or crash — especially if positi
 **Then** results are written via structured JSON logging with reconciliation details (positions matched, discrepancies found, timestamps)
 **And** note: once Epic 6 Story 6.5 deploys the `audit_logs` table with hash chaining, reconciliation results should be retroactively routed through the AuditLogService for tamper-evident persistence
 
+### Epic 5.5: Paper Trading Infrastructure
+Paper trading as a permanent, platform-agnostic system capability. Each platform independently configurable as live or paper. Decorator pattern wraps existing IPlatformConnector implementations — zero changes to live connector code.
+**FRs covered:** FR-DI-05 (new platform connectors without modifying core modules)
+**Additional:** Interface stabilization (cancelOrder, mock factories), per-platform fill simulation, `is_paper` state isolation, mixed mode validation
+
+## Epic 5.5: Paper Trading Infrastructure
+
+Paper trading as a permanent, platform-agnostic system capability. Each platform independently configurable as live or paper. Decorator pattern wraps existing IPlatformConnector implementations — zero changes to live connector code.
+
+### Story 5.5.0: Interface Stabilization & Test Infrastructure
+
+As a developer,
+I want cancelOrder() implemented, mocks centralized, and documentation updated,
+So that the interface is frozen and stable before building the decorator pattern on top.
+
+**Acceptance Criteria:**
+
+**Given** `cancelOrder()` is defined in `IPlatformConnector` but not implemented
+**When** Story 5.5.0 is complete
+**Then** `cancelOrder()` is functional on both Kalshi and Polymarket connectors
+**And** cancellation errors are wrapped in `ExecutionError` with appropriate error codes
+
+**Given** mock files are duplicated across 15+ test files
+**When** Story 5.5.0 is complete
+**Then** centralized mock factories exist: `createMockPlatformConnector()`, `createMockRiskManager()`, `createMockExecutionEngine()`
+**And** each factory returns a complete mock with sensible defaults and per-call overrides
+**And** all existing test files are migrated to use factories (zero duplicated mock definitions)
+
+**Given** P&L source-of-truth confusion occurred in Stories 5.3, 5.4, 5.5
+**When** Story 5.5.0 is complete
+**Then** `gotchas.md` exists in project root with P&L source-of-truth rule: "Always compute P&L from order fill records, never from `position.entryPrices`"
+**And** rule includes a code example showing correct vs incorrect approach
+
+**Given** technical debt items accumulated across Epics 2-5
+**When** Story 5.5.0 is complete
+**Then** `technical-debt.md` is updated: Kalshi dedup marked resolved, Epic 5 items added, gas estimation references its Epic 6 story
+
+**Given** reconciliation module lives in `src/reconciliation/` not `persistence/`
+**When** Story 5.5.0 is complete
+**Then** architecture doc reflects actual module location with rationale (ADR from Story 5.5)
+
+**Given** persistence repository coverage is 52.17% statements / 0% branches
+**When** Story 5.5.0 is complete
+**Then** coverage audit documents which untested paths are business logic vs Prisma pass-through
+**And** specific gaps are flagged for coverage in stories that touch those files
+
+**Sequencing:** This story MUST complete before Story 5.5.1 begins. Dependency chain: cancelOrder() → mock factory (needs final interface) → decorator in 5.5.1 (wraps stable interface).
+
+**Interface freeze takes effect after this story merges.** `IPlatformConnector` and `IRiskManager` — no new methods until Epic 6 unless team discusses and handles full ripple (mock factory + decorator) in same PR.
+
+**DoD Gates (from Epic 4.5 retro):**
+- Test isolation: no shared mutable state between tests
+- Interface preservation: no breaking changes to existing interface methods
+- Normalization ownership: connectors own all platform-specific normalization
+
+- All existing tests pass (baseline: 731), `pnpm lint` reports zero errors
+- New unit tests cover: cancelOrder on both connectors, mock factory completeness, factory override behavior
+
+### Story 5.5.1: Paper Trading Connector & Mode Configuration
+
+As an operator,
+I want to configure any platform connector in paper mode via environment variables,
+So that I can run execution logic against live order books without submitting real orders.
+
+**Acceptance Criteria:**
+
+**Given** `PLATFORM_MODE_KALSHI=paper` is set in environment
+**When** the engine starts
+**Then** the Kalshi connector is wrapped in a PaperTradingConnector decorator
+
+**Given** PaperTradingConnector wraps a live connector
+**When** `getOrderBook()`, `getHealth()`, `onOrderBookUpdate()` are called
+**Then** they proxy transparently to the underlying live connector
+
+**Given** PaperTradingConnector wraps a live connector
+**When** `submitOrder()` is called
+**Then** the order is intercepted locally (never reaches the platform API)
+**And** a simulated fill is generated using configurable parameters
+
+**Given** per-platform fill simulation config exists
+**When** a paper order is submitted for Kalshi
+**Then** fill latency uses `PAPER_FILL_LATENCY_MS_KALSHI` (default: 150ms)
+**And** slippage uses `PAPER_SLIPPAGE_BPS_KALSHI` (default: 5 bps)
+
+**Given** per-platform fill simulation config exists
+**When** a paper order is submitted for Polymarket
+**Then** fill latency uses `PAPER_FILL_LATENCY_MS_POLYMARKET` (default: 800ms)
+**And** slippage uses `PAPER_SLIPPAGE_BPS_POLYMARKET` (default: 15 bps)
+
+**Given** platform mode is set at startup
+**When** the engine is running
+**Then** the mode cannot be changed without a restart (immutable at runtime)
+
+**Given** PaperTradingConnector is active
+**When** any execution event is emitted
+**Then** the event payload includes `isPaper: true` metadata
+
+- `connectors/paper/paper-trading.connector.ts` implements IPlatformConnector via decorator pattern
+- `connectors/paper/fill-simulator.service.ts` handles simulated fill generation
+- `connectors/paper/paper-trading.types.ts` defines PaperTradingConfig, SimulatedFill types
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: decorator proxying, fill simulation, config validation, event metadata
+
+### Story 5.5.2: Paper Position State Isolation & Tracking
+
+As an operator,
+I want paper trading positions tracked separately from live positions,
+So that paper results never contaminate live P&L or risk calculations.
+
+**Acceptance Criteria:**
+
+**Given** the Prisma schema
+**When** migration runs
+**Then** `open_positions` and `orders` tables have an `is_paper` Boolean column (default: false)
+**And** a composite index exists on `(is_paper, status)` for both tables
+
+**Given** paper mode is active for a platform
+**When** a paper order fills
+**Then** the resulting position is persisted with `is_paper = true`
+
+**Given** risk budget queries (position limits, exposure calculations)
+**When** querying positions
+**Then** repository methods filter by `is_paper = false` by default (live-only)
+**And** paper positions have an isolated risk budget that does not affect live limits
+
+**Given** paper positions exist
+**When** the operator views the dashboard
+**Then** paper positions are visually distinct (amber border, `[PAPER]` tag)
+**And** paper P&L is excluded from live summary totals by default (toggle to include)
+
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: repository filtering, isolation verification, migration rollback
+
+### Story 5.5.3: Mixed Mode Validation & Operational Safety
+
+As an operator,
+I want the system to validate mixed mode configurations at startup,
+So that I am protected from invalid or dangerous platform mode combinations.
+
+**Acceptance Criteria:**
+
+**Given** platform mode configuration
+**When** the engine starts
+**Then** startup logs clearly display each platform's mode (`[Kalshi: LIVE] [Polymarket: PAPER]`)
+
+**Given** an invalid mode value (not `live` or `paper`)
+**When** the engine starts
+**Then** startup fails with a clear error message
+
+**Given** mixed mode is active (some platforms live, some paper)
+**When** an arbitrage opportunity spans a live and paper platform
+**Then** the execution proceeds (paper side simulated, live side real)
+**And** the opportunity and resulting positions are tagged with `mixedMode: true`
+
+**Given** all platforms are in paper mode
+**When** the engine starts
+**Then** a startup warning is logged: "All platforms in PAPER mode — no live trading active"
+
+**Given** the engine is running in any mode
+**When** the operator queries system status
+**Then** the API response includes the mode for each platform
+
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: startup validation, mixed mode tagging, mode display in status API
+- E2E test: full cycle with one platform live + one paper, verifying isolation
+
 ### Epic 6: Monitoring, Alerting & Compliance Logging
 Operator receives real-time Telegram alerts, has CSV trade logs for daily review, compliance validation before execution, and complete audit trail. MVP feature set complete.
 **FRs covered:** FR-MA-01, FR-MA-02, FR-MA-03, FR-DE-01, FR-DE-02, FR-PI-05
-**Additional:** Alerting health monitoring (daily test alerts), error code catalog implementation
+**Additional:** Gas estimation implementation (tech debt from Epic 2), alerting health monitoring (daily test alerts), error code catalog implementation
 
 ## Epic 6: Monitoring, Alerting & Compliance Logging
 
 Operator receives real-time Telegram alerts, has CSV trade logs for daily review, compliance validation before execution, and complete audit trail. MVP feature set complete.
+
+### Story 6.0: Gas Estimation Implementation
+
+As a developer,
+I want gas costs accurately estimated and included in edge calculations,
+So that Polymarket arbitrage opportunities account for real execution costs instead of using a placeholder.
+
+**Acceptance Criteria:**
+
+**Given** the TODO in `polymarket.connector.ts` for gas estimation
+**When** Story 6.0 is complete
+**Then** the TODO is removed and replaced with functional gas estimation logic
+**And** gas cost is included in edge calculations via the existing fee/gas parameters
+
+**Given** a Polymarket order is being evaluated
+**When** gas estimation runs
+**Then** the estimate includes a 20% safety buffer (per PRD NFR-I4 and architecture spec)
+**And** the estimate uses recent on-chain data (not a hardcoded constant)
+
+**Given** paper trading data from Epic 5.5
+**When** gas estimation is calibrated
+**Then** simulated gas costs are informed by observed patterns during paper trading validation
+
+- All existing tests pass, `pnpm lint` reports zero errors
+- New unit tests cover: gas estimation accuracy, buffer application, edge calculation integration
+- TODO in `polymarket.connector.ts` removed
+
+**Technical Debt:** Resolves carry-forward item from Epic 2 (carried through Epics 4.5, 5). Source: Epic 5 retrospective commitment.
 
 ### Story 6.1: Telegram Alert Integration
 

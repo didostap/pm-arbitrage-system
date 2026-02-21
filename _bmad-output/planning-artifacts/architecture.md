@@ -218,6 +218,14 @@ interface IPlatformConnector {
 - `.env` files per environment (`.env.development`, `.env.production`): Non-sensitive config — polling intervals, edge thresholds, risk limits, feature flags, ports, database host/name. Loaded by `@nestjs/config` based on `NODE_ENV`.
 - Docker secrets (production only): Kalshi API key/secret, Polymarket keystore password, dashboard API token, PostgreSQL password. Mounted as files, read at startup. Never in `.env`, compose files, or version control.
 - Local development uses `.env.development` with Kalshi sandbox API and testnet wallet credentials.
+- **Paper Trading Configuration (per-platform):**
+  - `PLATFORM_MODE_KALSHI=live|paper` — platform operating mode (default: `live`)
+  - `PLATFORM_MODE_POLYMARKET=live|paper` — platform operating mode (default: `live`)
+  - `PAPER_FILL_LATENCY_MS_KALSHI=150` — simulated fill latency for Kalshi paper mode
+  - `PAPER_SLIPPAGE_BPS_KALSHI=5` — simulated slippage in basis points for Kalshi paper mode
+  - `PAPER_FILL_LATENCY_MS_POLYMARKET=800` — simulated fill latency for Polymarket paper mode (reflects on-chain confirmation)
+  - `PAPER_SLIPPAGE_BPS_POLYMARKET=15` — simulated slippage in basis points for Polymarket paper mode
+  - Mode is immutable at runtime — requires restart to change. PaperTradingConnector decorates the real connector, proxying data methods and intercepting execution methods with local simulation.
 
 ### Decision Impact Analysis
 
@@ -529,12 +537,16 @@ pm-arbitrage-engine/
 │   │   │   ├── kalshi-api.client.ts               # Raw HTTP client for Kalshi REST API
 │   │   │   ├── kalshi-websocket.client.ts         # WebSocket connection management
 │   │   │   └── kalshi.types.ts                    # Kalshi-specific API response types
-│   │   └── polymarket/
+│   │   ├── polymarket/
 │   │       ├── polymarket.connector.ts            # IPlatformConnector implementation
 │   │       ├── polymarket.connector.spec.ts
 │   │       ├── polymarket-websocket.client.ts      # WebSocket connection management
 │   │       ├── polymarket-auth.service.ts         # SDK-based wallet auth (API key derivation)
 │   │       └── polymarket.types.ts                # Polymarket-specific types
+│   │   └── paper/
+│   │       ├── paper-trading.connector.ts         # IPlatformConnector decorator (wraps real connector)
+│   │       ├── fill-simulator.service.ts          # Simulated fill generation (per-platform params)
+│   │       └── paper-trading.types.ts             # PaperTradingConfig, SimulatedFill
 │   ├── dashboard/
 │   │   ├── dashboard.module.ts
 │   │   ├── dashboard.controller.ts                # REST endpoints (/api/health, /api/positions, etc.)

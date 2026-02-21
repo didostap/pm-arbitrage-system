@@ -3,63 +3,159 @@
 ## Root Directory
 ```
 /
-├── pm-arbitrage-engine/    # Main application code (WORKING DIRECTORY)
-├── docs/                   # Project documentation
+├── pm-arbitrage-engine/    # Main application code (WORKING DIRECTORY, independent git repo)
+├── docs/                   # Project documentation (currently empty)
 ├── _bmad-output/          # BMAD artifacts
+├── _bmad/                 # BMAD config
 ├── CLAUDE.md              # Claude Code instructions
-└── README.md              # Project overview
+└── .claude/               # Claude memory + project config
 ```
 
-## pm-arbitrage-engine/ Structure
+## pm-arbitrage-engine/src/ Full Structure
 ```
-pm-arbitrage-engine/
-├── src/                   # Source code
-│   ├── main.ts            # Application entry point
-│   ├── app.module.ts      # Root NestJS module
-│   ├── app.controller.ts  # Root controller
-│   ├── app.service.ts     # Root service
-│   ├── modules/           # Feature modules
-│   │   ├── arbitrage-detection/
-│   │   ├── data-ingestion/
-│   │   ├── execution/
-│   │   ├── monitoring/
-│   │   └── risk-management/
-│   ├── connectors/        # External platform integrations
-│   │   ├── kalshi/
-│   │   └── polymarket/
-│   ├── core/              # Core engine services
-│   │   ├── trading-engine.service.ts
-│   │   ├── engine-lifecycle.service.ts
-│   │   └── scheduler.service.ts
-│   └── common/            # Shared utilities
-│       ├── types/         # Type definitions
-│       ├── config/        # Configuration
-│       ├── utils/         # Utilities (retry, rate-limiter)
-│       ├── errors/        # Error classes
-│       ├── events/        # Event definitions
-│       ├── interfaces/    # Interfaces
-│       └── prisma.service.ts
+src/
+├── main.ts
+├── app.module.ts / app.controller.ts / app.service.ts
+│
+├── core/
+│   ├── core.module.ts
+│   ├── trading-engine.service.ts         # Main orchestrator: ingest → detect → edge calc → risk → execute
+│   ├── engine-lifecycle.service.ts       # Bootstrap/shutdown: config validation, reconciliation, risk init
+│   └── scheduler.service.ts             # @Interval polling cycles, NTP checks
+│
+├── modules/
+│   ├── data-ingestion/
+│   │   ├── data-ingestion.module.ts
+│   │   ├── data-ingestion.service.ts     # WebSocket subscription, order book polling, snapshot persistence
+│   │   ├── order-book-normalizer.service.ts  # Platform-specific → NormalizedOrderBook
+│   │   ├── platform-health.service.ts    # Health calculation, p95 latency, staleness detection
+│   │   └── degradation-protocol.service.ts   # Platform degradation state, edge threshold multiplier
+│   │
+│   ├── arbitrage-detection/
+│   │   ├── arbitrage-detection.module.ts
+│   │   ├── detection.service.ts          # Cross-platform dislocation detection
+│   │   ├── edge-calculator.service.ts    # Net edge with fees/gas, liquidity depth, position sizing
+│   │   ├── types/                        # RawDislocation, EnrichedOpportunity, EdgeCalculationResult, DetectionCycleResult
+│   │   └── __tests__/edge-calculation-scenarios.csv
+│   │
+│   ├── contract-matching/
+│   │   ├── contract-matching.module.ts
+│   │   ├── contract-pair-loader.service.ts   # YAML config reader → PairConfig[]
+│   │   ├── contract-match-sync.service.ts    # Sync YAML pairs → ContractMatch DB table
+│   │   ├── dto/contract-pair.dto.ts
+│   │   └── types/contract-pair-config.type.ts
+│   │
+│   ├── execution/
+│   │   ├── execution.module.ts
+│   │   ├── execution.service.ts          # Two-leg execution: verify depth → submit → persist → events
+│   │   ├── execution-queue.service.ts    # Budget reservation → execute → commit/release
+│   │   ├── execution-lock.service.ts     # Concurrency guard
+│   │   ├── single-leg-resolution.service.ts  # Retry/close exposed legs
+│   │   ├── single-leg-resolution.controller.ts  # REST API for operator actions
+│   │   ├── exposure-tracker.service.ts   # Weekly/monthly single-leg exposure tracking
+│   │   ├── exposure-alert-scheduler.service.ts  # Periodic re-emit of exposure alerts
+│   │   ├── single-leg-pnl.util.ts        # P&L scenarios, recommended actions
+│   │   ├── execution.constants.ts
+│   │   ├── retry-leg.dto.ts / close-leg.dto.ts
+│   │
+│   ├── risk-management/
+│   │   ├── risk-management.module.ts
+│   │   ├── risk-manager.service.ts       # Budget, position limits, daily loss, halt/resume, overrides
+│   │   ├── risk-management.constants.ts
+│   │   ├── risk-override.controller.ts   # POST /api/risk/override (auth-guarded)
+│   │   └── dto/risk-override.dto.ts
+│   │
+│   ├── exit-management/
+│   │   ├── exit-management.module.ts
+│   │   ├── exit-monitor.service.ts       # @Interval(30s) position evaluation
+│   │   └── threshold-evaluator.service.ts  # P&L targets, time-based exit triggers
+│   │
+│   └── monitoring/
+│       └── .gitkeep                      # NOT YET IMPLEMENTED
+│
+├── connectors/
+│   ├── connector.module.ts / connector.constants.ts
+│   ├── kalshi/
+│   │   ├── kalshi.connector.ts           # IPlatformConnector implementation (REST + WebSocket)
+│   │   ├── kalshi-websocket.client.ts    # Snapshot/delta WS order book management
+│   │   ├── kalshi.types.ts
+│   │   └── kalshi-sdk.d.ts               # Type declarations for kalshi-typescript SDK
+│   └── polymarket/
+│       ├── polymarket.connector.ts       # IPlatformConnector implementation (CLOB + viem)
+│       ├── polymarket-websocket.client.ts  # WS order book management
+│       ├── polymarket.types.ts
+│       └── polymarket-error-codes.ts
+│
+├── reconciliation/
+│   ├── reconciliation.module.ts
+│   ├── startup-reconciliation.service.ts # Verify positions/orders vs platform state on boot
+│   ├── reconciliation.controller.ts      # GET /status, POST /run, POST /resolve
+│   └── dto/resolve-reconciliation.dto.ts
+│
+├── persistence/
+│   └── repositories/
+│       ├── position.repository.ts        # CRUD + specialized queries (with orders, with pair)
+│       └── order.repository.ts           # CRUD + pair-based queries
+│
+├── common/
+│   ├── prisma.service.ts / persistence.module.ts
+│   ├── interfaces/
+│   │   ├── platform-connector.interface.ts  # IPlatformConnector (11 methods)
+│   │   ├── risk-manager.interface.ts        # IRiskManager (12 methods)
+│   │   ├── execution-engine.interface.ts    # IExecutionEngine, ExecutionResult
+│   │   └── execution-queue.interface.ts     # IExecutionQueue
+│   ├── types/
+│   │   ├── normalized-order-book.type.ts    # NormalizedOrderBook, PriceLevel
+│   │   ├── platform.type.ts                 # PlatformId enum, OrderParams, OrderResult, FeeSchedule, etc.
+│   │   ├── risk.type.ts                     # RiskConfig, RiskDecision, BudgetReservation, RankedOpportunity, etc.
+│   │   ├── reconciliation.types.ts          # ReconciliationResult, ReconciliationDiscrepancy, etc.
+│   │   └── ntp.type.ts
+│   ├── errors/
+│   │   ├── system-error.ts              # Base error class
+│   │   ├── platform-api-error.ts        # Codes 1000-1999
+│   │   ├── execution-error.ts           # Codes 2000-2999
+│   │   ├── risk-limit-error.ts          # Codes 3000-3999
+│   │   ├── system-health-error.ts       # Codes 4000-4999
+│   │   └── config-validation-error.ts
+│   ├── events/
+│   │   ├── event-catalog.ts             # EVENT_NAMES constant (30 event types)
+│   │   ├── base.event.ts                # BaseEvent class
+│   │   ├── execution.events.ts          # OrderFilled, SingleLegExposure, SingleLegResolved, ExitTriggered, etc.
+│   │   ├── detection.events.ts
+│   │   ├── risk.events.ts
+│   │   ├── platform.events.ts
+│   │   ├── orderbook.events.ts
+│   │   ├── system.events.ts
+│   │   └── time.events.ts
+│   ├── utils/
+│   │   ├── financial-math.ts            # FinancialMath class (Decimal-based edge calculations)
+│   │   ├── rate-limiter.ts              # Token bucket with read/write channels + tier presets
+│   │   ├── with-retry.ts               # Retry utility with backoff
+│   │   ├── ntp-sync.util.ts            # NTP time synchronization
+│   │   ├── kalshi-price.util.ts        # Kalshi cents ↔ decimal conversion
+│   │   └── platform.ts                 # Platform utility functions
+│   ├── services/
+│   │   └── correlation-context.ts       # AsyncLocalStorage-based correlationId
+│   ├── guards/
+│   │   └── auth-token.guard.ts          # Bearer token auth for API endpoints
+│   └── config/
+│       └── logger.config.ts             # Pino logger configuration
+│
 ├── prisma/
-│   └── schema.prisma      # Database schema
-├── test/                  # E2E and integration tests
-├── dist/                  # Build output
-├── docker-compose.yml     # Production Docker setup
-├── docker-compose.dev.yml # Development Docker setup
-├── Dockerfile             # Container definition
-├── vitest.config.ts       # Test configuration
-├── tsconfig.json          # TypeScript config
-├── eslint.config.mjs      # ESLint config
-├── .prettierrc            # Prettier config
-├── .env.development       # Dev environment vars
-├── .env.example           # Environment template
-└── package.json           # Dependencies and scripts
+│   ├── schema.prisma                    # 8 models, 3 enums
+│   └── migrations/                      # Prisma migration files
+│
+└── test/                                # E2E tests
+    ├── setup.ts
+    ├── app.e2e-spec.ts
+    ├── core-lifecycle.e2e-spec.ts
+    ├── data-ingestion.e2e-spec.ts
+    └── logging.e2e-spec.ts
 ```
 
-## Key Module Responsibilities
-- **arbitrage-detection:** Identifies arbitrage opportunities
-- **data-ingestion:** Fetches and normalizes market data
-- **execution:** Executes trades
-- **monitoring:** System health and metrics
-- **risk-management:** Position limits and risk controls
-- **connectors:** API clients for Kalshi and Polymarket
-- **core:** Main trading engine orchestration
+## NOT YET IMPLEMENTED (from CLAUDE.md architecture)
+- `dashboard/` — REST + WebSocket gateway for operator UI
+- `monitoring/` module — Only has .gitkeep
+- `common/filters/` — Global exception filter
+- `common/interceptors/` — correlationId, response wrapper
+- `common/constants/` — Error codes, risk limits, platform enums (some in respective modules)

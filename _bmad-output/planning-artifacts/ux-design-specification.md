@@ -634,6 +634,18 @@ The journey from "supervised tool" (Month 1) to "trusted infrastructure" (Month 
 
 **Implementation:** Persistent header component showing composite health status (API connectivity + execution engine + data feeds + platform health), updates via WebSocket.
 
+**Platform Mode Badges:** Each platform tile in the header health bar displays a mode badge:
+- **LIVE** — green badge, normal operation
+- **PAPER** — amber badge with dotted border, paper trading active
+
+Badge placement: inline after platform name (e.g., `Kalshi [LIVE]` · `Polymarket [PAPER]`). Badges are static — they reflect startup configuration and do not change at runtime.
+
+**Paper Position Distinction:** Positions created via paper trading display with:
+- Amber left-border accent (vs. default neutral border for live positions)
+- `[PAPER]` tag after the pair name
+- Paper positions are excluded from P&L summary totals by default (toggle to include)
+- Filter toggle: All / Live Only / Paper Only
+
 **Pattern 4: Chronological Event Timeline (from Stripe)**
 
 **Application:** Execution log and audit log presented as timeline with expandable detail.
