@@ -1,6 +1,7 @@
 # Codebase Structure
 
 ## Root Directory
+
 ```
 /
 ├── pm-arbitrage-engine/    # Main application code (WORKING DIRECTORY, independent git repo)
@@ -12,6 +13,7 @@
 ```
 
 ## pm-arbitrage-engine/src/ Full Structure
+
 ```
 src/
 ├── main.ts
@@ -74,7 +76,13 @@ src/
 │       └── .gitkeep                      # NOT YET IMPLEMENTED
 │
 ├── connectors/
-│   ├── connector.module.ts / connector.constants.ts
+│   ├── connector.module.ts / connector.constants.ts / connector.module.spec.ts
+│   ├── paper/
+│   │   ├── paper-trading.types.ts            # PaperTradingConfig, SimulatedOrder, PAPER_MAX_ORDERS
+│   │   ├── fill-simulator.service.ts         # Simulated fill generation (Decimal math, LRU eviction)
+│   │   ├── fill-simulator.service.spec.ts    # 11 tests
+│   │   ├── paper-trading.connector.ts        # IPlatformConnector wrapper (real data + simulated execution)
+│   │   └── paper-trading.connector.spec.ts   # 13 tests
 │   ├── kalshi/
 │   │   ├── kalshi.connector.ts           # IPlatformConnector implementation (REST + WebSocket)
 │   │   ├── kalshi-websocket.client.ts    # Snapshot/delta WS order book management
@@ -154,6 +162,7 @@ src/
 ```
 
 ## NOT YET IMPLEMENTED (from CLAUDE.md architecture)
+
 - `dashboard/` — REST + WebSocket gateway for operator UI
 - `monitoring/` module — Only has .gitkeep
 - `common/filters/` — Global exception filter

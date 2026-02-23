@@ -553,17 +553,22 @@ pm-arbitrage-engine/
 │   │   ├── dashboard.controller.spec.ts
 │   │   ├── dashboard.gateway.ts                   # NestJS WebSocket gateway for real-time events
 │   │   └── dashboard.gateway.spec.ts
+│   ├── reconciliation/
+│   │   ├── reconciliation.module.ts               # Dedicated reconciliation module
+│   │   ├── startup-reconciliation.service.ts      # Post-crash state reconciliation vs platform APIs
+│   │   ├── reconciliation.controller.ts           # REST endpoints for manual reconciliation actions
+│   │   └── dto/
+│   │       └── resolve-reconciliation.dto.ts      # Validation DTO for reconciliation resolution
 │   └── persistence/
 │       ├── persistence.module.ts                  # PrismaService, repositories
 │       ├── prisma.service.ts                      # Prisma client lifecycle management
-│       ├── repositories/
-│       │   ├── position.repository.ts
-│       │   ├── order.repository.ts
-│       │   ├── contract-match.repository.ts
-│       │   ├── audit-log.repository.ts
-│       │   ├── risk-state.repository.ts
-│       │   └── order-book-snapshot.repository.ts
-│       └── startup-reconciliation.service.ts      # Post-crash state reconciliation vs platform APIs
+│       └── repositories/
+│           ├── position.repository.ts
+│           ├── order.repository.ts
+│           ├── contract-match.repository.ts
+│           ├── audit-log.repository.ts
+│           ├── risk-state.repository.ts
+│           └── order-book-snapshot.repository.ts
 └── test/
     ├── e2e/
     │   ├── execution-flow.e2e-spec.ts             # Full detection → risk → execution pipeline
@@ -574,6 +579,8 @@ pm-arbitrage-engine/
         ├── contract-pairs.fixture.ts              # Test contract match pairs
         └── platform-responses.fixture.ts          # Mock Kalshi/Polymarket API responses
 ```
+
+> **ADR (Story 5.5):** Reconciliation was moved from `persistence/` to a dedicated `ReconciliationModule` at `src/reconciliation/` during Story 5.5 to avoid expanding `PersistenceModule`'s dependency surface and preventing circular DI.
 
 ### Architectural Boundaries
 
@@ -628,7 +635,8 @@ persistence/ (PostgreSQL via Prisma — positions, audit trail, knowledge base, 
 
 | PRD Module | Directory | Key FRs |
 |-----------|-----------|---------|
-| Engine Lifecycle | `core/` | Startup reconciliation, graceful shutdown, polling orchestration |
+| Engine Lifecycle | `core/` | Graceful shutdown, polling orchestration |
+| Reconciliation | `reconciliation/` | Startup reconciliation, crash recovery, orphan detection |
 | Data Ingestion | `modules/data-ingestion/` + `connectors/` | FR-DI-01 through FR-DI-05 |
 | Arbitrage Detection | `modules/arbitrage-detection/` | FR-AD-01 through FR-AD-04 |
 | Contract Matching | `modules/contract-matching/` | FR-CM-01 through FR-CM-04, FR-AD-05 through FR-AD-07 |
