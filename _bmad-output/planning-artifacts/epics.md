@@ -1158,6 +1158,11 @@ Operator receives real-time Telegram alerts, has CSV trade logs for daily review
 **FRs covered:** FR-MA-01, FR-MA-02, FR-MA-03, FR-DE-01, FR-DE-02, FR-PI-05
 **Additional:** Gas estimation implementation (tech debt from Epic 2), alerting health monitoring (daily test alerts), error code catalog implementation
 
+### Epic 6.5: Paper Trading Validation
+7-day structured validation of the complete system against live markets in paper mode. Hard gate — Epic 7 does not start until Epic 6.5 clears. Follows the precedent of Epic 4.5 and Epic 5.5 as a validation sprint inserted between main epics.
+**FRs covered:** None (validation and operational readiness)
+**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 48h read-only detection, 5-day paper execution, validation report
+
 ## Epic 6: Monitoring, Alerting & Compliance Logging
 
 Operator receives real-time Telegram alerts, has CSV trade logs for daily review, compliance validation before execution, and complete audit trail. MVP feature set complete.
@@ -1314,6 +1319,414 @@ So that my legal counsel and tax advisor have exactly what they need without man
 **When** any entry's hash chain is verified
 **Then** the chain is provably intact (each entry's hash matches recalculation from previous entry + current data)
 **And** any tampering would break the chain and be detectable
+
+### Epic 6.5: Paper Trading Validation
+7-day structured validation of the complete system against live markets in paper mode. Hard gate — Epic 7 does not start until Epic 6.5 clears. Follows the precedent of Epic 4.5 and Epic 5.5 as a validation sprint inserted between main epics.
+**FRs covered:** None (validation and operational readiness)
+**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 48h read-only detection, 5-day paper execution, validation report
+
+## Epic 6.5: Paper Trading Validation
+
+7-day structured validation of the complete system against live markets in paper mode. Phases: codebase readiness → infrastructure provisioning → measurement framework → read-only detection (48h) → paper execution (5 days) → validation report. Hard gate: Epic 7 does not start until Epic 6.5 clears.
+
+**Sequencing:** 6.5.0 → [6.5.1 + 6.5.2 + 6.5.3 in parallel] → 6.5.4 → 6.5.5 → 6.5.6
+
+### Story 6.5.0: Codebase Readiness & Tech Debt Clearance
+
+As an operator,
+I want to verify the codebase is clean, all known tech debt items from Epic 6 are resolved, and the system runs correctly on a fresh checkout,
+So that paper trading validation starts from a known-good baseline with no pre-existing issues muddying the results.
+
+**Acceptance Criteria:**
+
+**Given** the pm-arbitrage-engine codebase at the end of Epic 6
+**When** `pnpm test` is run on a clean checkout
+**Then** 1,078+ tests pass with zero failures
+**And** `pnpm lint` passes with zero errors
+**And** this verified count becomes the regression baseline for Epic 6.5
+
+**Given** the Epic 6 retro identified financial math violations in "display" code (Story 6.1 formatters)
+**When** a decimal compliance audit is performed across the engine codebase
+**Then** every arithmetic operation on monetary fields uses `decimal.js` — no native JS `+`, `-`, `*`, `/` on prices, fees, edges, P&L, or budget values
+**And** violations found are fixed and covered by tests
+**And** audit results are documented (files checked, violations found, fixes applied)
+**And** scope boundary: this covers `src/` production code only — test assertions that compare Decimal outputs using `.toNumber()`, `.toFixed()`, or `toBeCloseTo()` for readability are not violations. The rule targets computation, not assertion formatting.
+
+**Given** the retro established an absolute Decimal math rule with no context-based exceptions
+**When** this story completes
+**Then** `gotchas.md` includes the Decimal math rule with examples of non-obvious violation sites (formatters, test helpers, logging utilities)
+**And** the rule explicitly states: any arithmetic on a field that touches money uses `decimal.js`, regardless of where the code lives
+
+**Given** `financial-math.property.spec.ts` has a known flaky property test (carry-forward from Epic 5.5)
+**When** a timeboxed 1-hour fix attempt is performed
+**Then** either: the test is fixed and passes reliably on 10 consecutive runs, **or** the test is documented as non-deterministic with root cause analysis and a decision recorded (keep with `@retry`, remove, or rewrite)
+
+**Given** Epic 6 added REST endpoints (trade export, tax report, reconciliation)
+**When** Swagger spec validation is performed
+**Then** all Epic 6 endpoints have proper `@ApiOperation`, `@ApiResponse`, and DTO decorators
+**And** `pnpm build` produces no Swagger-related warnings
+
+**Given** paper trading mode requires specific environment configuration
+**When** `.env.example` and `.env.development` are reviewed
+**Then** all `PLATFORM_MODE_*`, `PAPER_FILL_*`, and `PAPER_SLIPPAGE_*` variables are present with documented defaults
+**And** `.env.development` is configured for dual paper mode (both platforms)
+
+**Given** the system depends on PostgreSQL via Docker Compose
+**When** `docker-compose -f docker-compose.dev.yml up -d` is run followed by `pnpm prisma migrate dev`
+**Then** PostgreSQL starts cleanly, all migrations apply, and `pnpm prisma studio` connects successfully
+
+**Given** the application should run stable in idle paper mode
+**When** the engine is started locally in dual paper mode and left running for 30 minutes
+**Then** application logs are captured for the full runtime window
+**And** logs are analyzed for errors, unhandled exceptions, memory warnings, connection failures, or unexpected event patterns
+**And** any issues found are documented and fixed (or triaged with rationale if deferring)
+**And** a clean 30-minute run with no errors or anomalies is achieved before marking this story complete
+
+**Sequencing:** This story MUST complete before Stories 6.5.1, 6.5.2, and 6.5.3 begin. It establishes the baseline for all subsequent validation work.
+
+**DoD Gates (carried from Epic 4.5/5.5):**
+- Test isolation: no shared mutable state between tests
+- All existing 1,078+ tests pass, `pnpm lint` reports zero errors
+- Any new tests added for decimal violations follow co-located pattern
+
+### Story 6.5.1: Event Pair Selection & Contract Configuration
+
+As an operator,
+I want a curated set of active cross-platform contract pairs configured and verified,
+So that the detection engine has real market pairs to monitor during validation phases.
+
+**Acceptance Criteria:**
+
+**Given** the system requires cross-platform contract pairs to detect arbitrage opportunities
+**When** live Kalshi and Polymarket markets are surveyed
+**Then** 10-15 active cross-platform pairs are identified where both platforms offer contracts on the same underlying event
+**And** each pair has matching resolution criteria (same question, compatible outcome structure, overlapping resolution window)
+**And** pairs are diversified across at least 3 categories (e.g., politics, crypto, economics, sports, weather)
+
+**Given** identified pairs need verified contract identifiers
+**When** each pair is validated against live platform APIs
+**Then** Kalshi event ticker and market IDs are confirmed accessible via the Kalshi API
+**And** Polymarket condition IDs and token IDs are confirmed accessible via the Polymarket API
+**And** each pair has been spot-checked for active order book depth on both platforms (not empty or delisted markets)
+
+**Given** the system loads contract pairs from `contract-pairs.yaml`
+**When** all verified pairs are configured
+**Then** `contract-pairs.yaml` contains 10-15 entries in the format expected by `ContractMatchingService`
+**And** each entry includes: pair name, Kalshi identifiers, Polymarket identifiers, category tag, expected resolution date, and confidence score (100 for manually verified)
+**And** the engine starts successfully with the new configuration and `ContractMatchingService` loads all pairs without errors
+
+**Given** contract pairs may become stale (resolved, delisted, or liquidity dried up)
+**When** pair selection is complete
+**Then** a selection log documents: rationale for each pair chosen, pairs considered but rejected (with reason), date of verification, and expected resolution dates
+**And** pairs with resolution dates within 14 days of Phase 2 end are flagged as at-risk for early resolution during validation
+
+**Given** the detection engine needs sufficient opportunity surface
+**When** pairs are selected
+**Then** at least 5 pairs have resolution dates >30 days out (ensuring they remain active through the full 7-day validation window)
+**And** at least 3 pairs are in historically active categories with regular order book updates
+
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.2 and 6.5.3. Must complete before 6.5.4.
+
+**Previous Story Intelligence:**
+- `contract-pairs.yaml` format defined in Story 3.1 (Manual Contract Pair Configuration)
+- `ContractMatchingService` loads pairs at startup — verify format compatibility before writing 10+ entries
+- Kalshi API uses event tickers; Polymarket uses condition IDs — different identifier structures
+- Compliance config from Story 6.4 has blocked categories — cross-reference pairs against compliance config to avoid `COMPLIANCE_BLOCKED` on first run
+
+### Story 6.5.2: Deployment Runbook & VPS Provisioning
+
+As an operator,
+I want a documented deployment process and a provisioned VPS running the engine,
+So that paper trading validation runs against live markets on persistent infrastructure rather than a local dev machine.
+
+**Acceptance Criteria:**
+
+**Given** the system needs persistent infrastructure for 7+ days of continuous operation
+**When** a Hetzner VPS is provisioned
+**Then** the VPS runs Ubuntu 24.04 LTS
+**And** SSH key authentication is configured (password auth disabled)
+**And** firewall is configured SSH-only (no public-facing ports)
+**And** VPS sizing is documented with rationale (CPU, RAM, disk for PostgreSQL + Node.js engine)
+
+**Given** the engine requires a runtime environment
+**When** the VPS is configured
+**Then** Node.js 20 LTS, pnpm, and Docker (for PostgreSQL) are installed
+**And** PostgreSQL runs via Docker Compose with the production compose file
+**And** Prisma migrations apply successfully against the production database
+**And** the engine builds cleanly via `pnpm build`
+
+**Given** the engine needs to run continuously and survive SSH disconnects
+**When** process management is configured
+**Then** pm2 manages the engine process with automatic restart on crash
+**And** pm2 is configured for startup persistence (survives VPS reboot)
+**And** `pm2 logs` captures stdout/stderr for post-hoc analysis
+
+**Given** production credentials must be managed securely
+**When** `.env.production` is configured
+**Then** a `.env.production` template exists in the runbook with all required variables and placeholder values
+**And** the deployed `.env.production` contains real API keys for Kalshi (sandbox) and Polymarket (testnet/read-only)
+**And** both platforms are configured in paper mode (`PLATFORM_MODE_KALSHI=paper`, `PLATFORM_MODE_POLYMARKET=paper`)
+**And** `.env.production` is never committed to version control
+
+**Given** data loss during validation would require restarting the observation period
+**When** backup is configured
+**Then** hourly `pg_dump` runs via cron, compressed, with 7-day rolling retention
+**And** at least one backup has been manually verified by restoring to a separate database and confirming row counts
+
+**Given** the deployment process should be reproducible
+**When** the runbook is complete
+**Then** a deployment runbook document exists covering: VPS provisioning, runtime setup, clone/install/migrate/build steps, `.env.production` setup, pm2 configuration, backup cron setup, and verification checklist
+**And** the runbook has been validated end-to-end by following it on the actual VPS (not just written theoretically)
+
+**Given** the engine should confirm it's operational after deployment
+**When** the engine starts on the VPS
+**Then** the Telegram daily test alert fires successfully (confirming Telegram bot token, chat ID, and network egress)
+**And** the engine runs stable for at least 10 minutes with no errors in `pm2 logs`
+**And** the health endpoint responds correctly via SSH tunnel
+
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.3. Must complete before 6.5.4.
+
+**Previous Story Intelligence:**
+- Architecture doc specifies Hetzner VPS with SSH tunnel access (no public ports beyond SSH)
+- Backup strategy from architecture: hourly pg_dump, 7-day rolling window
+- Telegram daily test alert implemented in Story 6.1 via `@Cron` — confirms connectivity without manual testing
+- Paper trading connector from Epic 5.5 decorates real connectors — platform API connections are real, only execution is simulated
+
+### Story 6.5.3: Validation Framework & Go/No-Go Criteria
+
+As an operator,
+I want a defined measurement framework with explicit success thresholds before starting live observation,
+So that validation phases produce structured, evaluable data rather than anecdotal impressions.
+
+**Acceptance Criteria:**
+
+**Given** Phase 1 (read-only detection) needs quantitative evaluation
+**When** the metrics collection template for Phase 1 is designed
+**Then** the template captures per-cycle: detection timestamp, opportunities found, edge values, detection latency (ms), platform health status, order book depth at detection time
+**And** the template captures daily aggregates: total cycles, total opportunities, edge distribution (min/median/max/mean), latency percentiles (p50/p95/p99), platform uptime percentage
+**And** the collection mechanism is defined (structured log parsing, database queries, or dedicated metrics endpoint)
+
+**Given** Phase 2 (paper execution) adds execution and monitoring dimensions
+**When** the metrics collection template for Phase 2 is designed
+**Then** the template extends Phase 1 metrics with: paper orders submitted, fill simulation results, position lifecycle events (open → monitor → exit), exit trigger types, single-leg detections, risk budget consumption
+**And** monitoring validation metrics are included: Telegram alerts sent (by severity), CSV log entries written, daily summary generation, audit trail hash chain length
+**And** resilience metrics are included: memory usage trend, connection recovery events, graceful shutdown/restart count, reconciliation results
+
+**Given** validation requires daily human observation alongside automated metrics
+**When** the observation log format is established
+**Then** the format includes: date, observer, key observations (narrative), anomalies noted, decisions made, environment changes, and open questions
+**And** the format is lightweight enough to fill in 10 minutes per day (not a bureaucratic exercise)
+
+**Given** the PRD defines quantitative success targets
+**When** go/no-go criteria are formalized for Phase 1 → Phase 2 gate
+**Then** criteria include:
+- Opportunity detection frequency: ≥8 per week (PRD target) — or documented explanation if lower with threshold adjustment proposal
+- Detection latency: <500ms per cycle (NFR-P3)
+- Zero unhandled crashes during 48h run
+- Both platform connections maintained >95% uptime
+**And** each criterion has a clear pass/fail definition (no subjective judgment)
+**And** a "conditional proceed" path is defined for criteria that partially fail (e.g., 5 opportunities instead of 8 — investigate thresholds, don't auto-abort)
+
+**Given** the PRD defines end-of-validation success gates
+**When** go/no-go criteria are formalized for Phase 2 → Epic 7 gate
+**Then** criteria include:
+- Zero unhandled crashes during 5-day run
+- Telegram alerts verified functional (at least one of each severity level observed or manually triggered)
+- CSV logs and daily summaries populated correctly with no missing fields beyond documented N/A gaps
+- Audit trail hash chain verified intact via `verifyChain()`
+- Reconciliation successful after at least one intentional restart
+- Single-leg exposure events: <3 requiring manual intervention (PRD success gate)
+**And** each criterion has a clear pass/fail definition
+
+**Given** the validation framework needs stakeholder sign-off before the clock starts
+**When** all templates and criteria are complete
+**Then** the complete validation framework (metrics templates, observation log format, go/no-go criteria for both gates) is reviewed and approved by Arbi
+**And** approval is recorded with date
+
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.2. Must complete before 6.5.4.
+
+**Previous Story Intelligence:**
+- PRD MVP Success Gate section defines quantitative targets — use as source of truth for thresholds
+- NFR-P3 specifies <500ms detection latency at p95
+- Story 6.2 implemented `EventConsumerService` with severity classification (27 events) — use as reference for "at least one of each severity level"
+- Story 6.3 CSV trade log has 5 N/A columns due to event payload gaps — document these as known gaps, not validation failures
+- Story 6.5 audit trail `verifyChain()` already exists — just needs to be run against real data
+
+### Story 6.5.4: Read-Only Detection Validation (48h)
+
+As an operator,
+I want to run the detection engine against live markets with execution disabled for 48 hours,
+So that I can verify opportunity detection works against real order books before risking paper execution.
+
+**Acceptance Criteria:**
+
+**Given** Stories 6.5.0 (baseline), 6.5.1 (pairs configured), 6.5.2 (VPS deployed), and 6.5.3 (metrics framework defined) are complete
+**When** the detection engine is started on the VPS with execution disabled
+**Then** the engine connects to both Kalshi and Polymarket APIs successfully
+**And** order book ingestion begins for all configured contract pairs
+**And** the detection cycle runs continuously per the configured polling interval
+**And** execution is confirmed disabled (no paper orders submitted, verified via logs and empty orders table)
+
+**Given** the engine is running in read-only detection mode
+**When** 48 hours of continuous operation have elapsed
+**Then** metrics are collected per the Phase 1 template from Story 6.5.3
+**And** daily observation log entries are recorded for each 24h period
+**And** raw detection events are preserved in logs for post-hoc analysis
+
+**Given** detection latency is a critical performance metric
+**When** per-cycle latency is measured across the 48h window
+**Then** p95 detection latency is <500ms (NFR-P3)
+**And** latency distribution is recorded (p50, p95, p99, max) with any outliers investigated
+
+**Given** opportunity frequency determines whether the arbitrage thesis holds
+**When** opportunities are tallied across the 48h window
+**Then** opportunity count, edge distribution (min/median/max), and per-pair breakdown are recorded
+**And** if zero opportunities are detected in 48h: investigation is performed (threshold too high? pairs too correlated? order books too thin?) with findings documented before proceeding
+
+**Given** platform connectivity must be reliable for sustained operation
+**When** platform health is monitored across the 48h window
+**Then** both platforms maintain >95% uptime (per health status events)
+**And** any degradation or disconnection events are logged with recovery time
+**And** Telegram alerts fire for platform health events (confirming Story 6.1/6.2 integration on live infrastructure)
+
+**Given** the engine must survive expected operational disruptions
+**When** the 48h window includes at least one intentional graceful restart (via pm2)
+**Then** the engine shuts down cleanly, restarts, reconnects to both platforms, and resumes detection
+**And** no data corruption or state inconsistency is observed post-restart
+
+**Given** the Phase 1 → Phase 2 gate requires explicit evaluation
+**When** the 48h observation period completes
+**Then** go/no-go criteria from Story 6.5.3 are evaluated with pass/fail for each criterion
+**And** a brief Phase 1 summary is written: metrics against thresholds, key observations, anomalies, and proceed/investigate/abort recommendation
+**And** Arbi reviews and approves proceeding to Phase 2 (or approves the investigation/adjustment plan if criteria partially failed)
+
+**Sequencing:** Requires 6.5.0, 6.5.1, 6.5.2, and 6.5.3 all complete. Gates 6.5.5.
+
+**Previous Story Intelligence:**
+- Detection cycle orchestrated by `TradingEngineService.executeCycle()` — disable execution by not starting the execution module or via configuration flag
+- Pipeline latency instrumentation added in Story 4.5.2 — latency metrics already logged per stage
+- Platform health published every 30s (FR-DI-04) — use these events for uptime calculation
+- Graceful shutdown implemented in Story 1.2 — pm2 sends SIGTERM, engine handles cleanup
+- Reconciliation from Story 5.5 runs on startup — the intentional restart also validates crash recovery path
+
+### Story 6.5.5: Paper Execution Validation (5 days)
+
+As an operator,
+I want to run the full trading pipeline in paper mode for 5 days against live markets,
+So that I can validate the complete position lifecycle, monitoring stack, and system resilience before considering production deployment.
+
+**Acceptance Criteria:**
+
+**Given** Story 6.5.4 Phase 1 gate has been passed and Arbi has approved proceeding
+**When** paper execution is enabled on the VPS
+**Then** the engine runs the full pipeline: detection → risk validation → paper execution → position monitoring → exit
+**And** both platforms operate in paper mode (confirmed via startup logs showing `PaperTradingConnector` active for each platform)
+
+**Given** position lifecycle is the core behavior under validation
+**When** paper trades execute over the 5-day window
+**Then** at least one complete position lifecycle is observed: opportunity detected → risk validated → orders submitted → fills simulated → position opened → exit threshold hit → exit orders submitted → position closed
+**And** if no opportunities reach execution (edge below threshold on all pairs), this is documented with analysis — the detection-to-execution funnel drop-off is itself a finding
+**And** position state transitions are verified against the expected state machine (PENDING → OPEN → MONITORING → CLOSING → CLOSED)
+
+**Given** single-leg exposure detection is a critical safety mechanism
+**When** paper execution runs for 5 days
+**Then** any single-leg events are detected within 5 seconds (PRD requirement) and Telegram alerts fire
+**And** single-leg exposure events total <3 requiring manual intervention (PRD success gate)
+**And** if single-leg events occur, the resolution path (operator action or automatic timeout) is documented
+
+**Given** risk management must constrain paper execution as it would live execution
+**When** paper trades execute
+**Then** position sizing respects 3% bankroll limit per pair
+**And** daily loss limits are tracked (even for simulated P&L)
+**And** compliance gate validates each opportunity before execution (Story 6.4)
+**And** no `COMPLIANCE_BLOCKED` events on configured pairs (pairs were pre-verified in 6.5.1)
+
+**Given** the full monitoring stack must be validated on live infrastructure
+**When** the 5-day window completes
+**Then** Telegram alerts have been received for at least: one execution event, one risk-related event, and one platform health event (or manually triggered if not organically observed)
+**And** CSV trade logs contain entries for all paper trades with correct field population (known N/A gaps from event payload limitations documented, not treated as failures)
+**And** daily summary generation has produced at least 4 daily summaries (one per completed day)
+**And** audit trail hash chain is verified intact via `verifyChain()` at end of validation
+
+**Given** the system must demonstrate resilience over sustained operation
+**When** resilience scenarios are tested during the 5-day window
+**Then** at least one intentional graceful shutdown + restart is performed with positions open, and reconciliation correctly recovers state
+**And** memory usage is sampled daily (via `process.memoryUsage()` or pm2 metrics) — no upward trend indicating a leak
+**And** any platform connection drops during the 5 days are recovered automatically with reconnection logged
+
+**Given** the 5-day window produces extensive operational data
+**When** each day completes
+**Then** daily observation log entries are recorded per the format from Story 6.5.3
+**And** metrics are collected per the Phase 2 template from Story 6.5.3
+**And** anomalies or unexpected behaviors are documented immediately, not deferred to the report
+
+**Given** Phase 2 completion gates the validation report
+**When** the 5-day observation period completes
+**Then** go/no-go criteria from Story 6.5.3 (Phase 2 → Epic 7 gate) are evaluated with pass/fail for each criterion
+**And** all collected metrics, observation logs, and anomaly notes are organized for Story 6.5.6 (report compilation)
+
+**Sequencing:** Requires 6.5.4 complete with Phase 1 gate passed. Gates 6.5.6.
+
+**Previous Story Intelligence:**
+- Paper trading connectors from Epic 5.5 simulate fills with configurable latency and slippage — fill parameters in `.env.production`
+- Exit monitoring from Story 5.4 uses fixed thresholds — exits trigger when edge erodes past configured percentage
+- Single-leg detection from Story 5.2 fires within 5 seconds — validated in unit tests but never against live timing
+- Reconciliation from Story 5.5 loads open positions from DB on startup — the restart-with-open-positions test is the real-world proof
+- CSV trade log N/A columns (Story 6.3): `contractId`, `fees`, `gas` on `OrderFilledEvent` — known gap, deferred to Epic 8 enrichment
+- Compliance gate (Story 6.4) runs in-memory before depth verification in `ExecutionService.execute()` — zero-latency check
+
+### Story 6.5.6: Validation Report & Epic 7 Readiness
+
+As an operator,
+I want a structured validation report that synthesizes all observation data into a go/no-go recommendation,
+So that the decision to proceed with Epic 7 and production deployment is evidence-based, not assumption-based.
+
+**Acceptance Criteria:**
+
+**Given** Phase 1 and Phase 2 observation data has been collected over 7 days
+**When** the validation report is compiled
+**Then** the report contains the following sections:
+
+1. **Executive Summary** — one-paragraph verdict: proceed, proceed with conditions, or halt
+2. **Metrics Summary vs PRD Targets** — table format, each metric with target value, observed value, and pass/fail/conditional
+3. **Detection Analysis** — opportunity frequency, edge distribution, per-pair breakdown, detection-to-execution funnel (opportunities detected → risk-validated → executed → filled → position opened)
+4. **Execution Analysis** — paper trade count, position lifecycle completions, fill simulation behavior, exit trigger distribution, single-leg events
+5. **Monitoring Stack Validation** — Telegram alerts (count by severity, delivery reliability), CSV logs (completeness, known gaps), daily summaries (generation consistency), audit trail (hash chain integrity result)
+6. **Resilience Observations** — restart/reconciliation results, memory trend, connection recovery events, uptime percentages
+7. **Anomalies & Surprises** — anything that deviated from expectations, whether positive or negative
+8. **Observation Narrative** — what we saw, what assumptions held, what assumptions broke, what surprised us
+9. **Epic 7 Scope Recommendations** — specific adjustments to dashboard scope informed by real operational data
+10. **Go/No-Go Recommendation** — explicit recommendation with conditions if applicable
+
+**Given** the report must be actionable, not just descriptive
+**When** the go/no-go recommendation is written
+**Then** it explicitly addresses each Phase 2 gate criterion from Story 6.5.3 with evidence
+**And** if recommending "proceed with conditions," each condition is specific and time-bounded (not open-ended)
+**And** if recommending "halt," the report identifies what must change and proposes a re-validation plan
+
+**Given** the detection-to-execution funnel is critical for production viability
+**When** funnel analysis is performed
+**Then** each stage of the funnel is quantified: opportunities detected → passed edge threshold → passed risk validation → execution attempted → fills simulated → position opened → position exited
+**And** drop-off at each stage is documented with root cause analysis
+
+**Given** Epic 7 scope should be informed by validation findings
+**When** scope recommendations are written
+**Then** at least 3 specific, evidence-backed recommendations are provided for Epic 7 prioritization
+**And** recommendations distinguish between "must have based on validation findings" and "nice to have based on operational observations"
+
+**Given** the report is the primary decision artifact for production readiness
+**When** the report is complete
+**Then** the report is saved to `{implementation_artifacts}/paper-trading-validation-report.md`
+**And** Arbi reviews and records a decision: proceed to Epic 7, proceed with conditions, or halt with re-validation plan
+
+**Sequencing:** Requires 6.5.5 complete. Final story in Epic 6.5. Approval of this report gates Epic 7 planning.
+
+**Previous Story Intelligence:**
+- Phase 1 summary from Story 6.5.4 feeds into the report — don't re-analyze, incorporate
+- Daily observation logs from both phases provide the narrative backbone
+- Metrics templates from Story 6.5.3 define the exact data points to report on — no ad hoc metrics
+- Event payload N/A gaps (Epic 6 retro carry-forward) — report should note which gaps impacted validation data quality, feeding into Epic 8 enrichment prioritization
+- PRD MVP Success Gate section is the authoritative reference for target values
 
 ### Epic 7: Operator Dashboard & Advanced Monitoring (Phase 1)
 Operator has a lightweight web dashboard for 2-minute morning scans, weekly performance metrics, contract matching approval interface, and manual intervention capabilities.
