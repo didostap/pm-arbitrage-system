@@ -1,5 +1,21 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-e-01-discovery', 'step-e-02-review', 'step-e-03-edit']
+stepsCompleted:
+  [
+    'step-01-init',
+    'step-02-discovery',
+    'step-03-success',
+    'step-04-journeys',
+    'step-05-domain',
+    'step-06-innovation',
+    'step-07-project-type',
+    'step-08-scoping',
+    'step-09-functional',
+    'step-10-nonfunctional',
+    'step-11-polish',
+    'step-e-01-discovery',
+    'step-e-02-review',
+    'step-e-03-edit',
+  ]
 inputDocuments:
   - '_bmad-output/planning-artifacts/product-brief-pm-arbitrage-system-2026-02-09.md'
   - '_bmad-output/brainstorming/initial-brainstorming-session-with-claude.md'
@@ -11,10 +27,10 @@ researchCount: 0
 brainstormingCount: 1
 projectDocsCount: 0
 classification:
-  projectType: "api_backend"
-  domain: "fintech"
-  complexity: "high"
-  projectContext: "greenfield"
+  projectType: 'api_backend'
+  domain: 'fintech'
+  complexity: 'high'
+  projectContext: 'greenfield'
 lastEdited: '2026-02-14'
 editHistory:
   - date: '2026-02-14'
@@ -76,11 +92,13 @@ Success is measured through a hierarchy that deliberately separates execution qu
 **Primary Success Criteria:**
 
 **The 48-Hour Test (Pass by end of Month 2)**
+
 - Can go away for a weekend with phone alerts only
 - Return to find system operated correctly, without anxiety
 - This milestone indicates genuine operational autonomy achieved
 
 **Autonomy Ratio Trajectory**
+
 - Formula: Automated decisions ÷ manual interventions
 - Month 1 target: 20:1
 - Month 6 target: 100:1+
@@ -88,17 +106,20 @@ Success is measured through a hierarchy that deliberately separates execution qu
 - Declining ratio means encountering situations it can't handle — either market complexity increasing or decision framework has gaps
 
 **Daily Time Investment**
+
 - Target: 30-45 minutes at steady state (month 3+)
 - Month 1: 2-3 hours (building trust phase)
 - Transition indicates shift from monitoring whether system works → managing confirmed working system
 
 **Critical Trust Milestone**
+
 - The first time the system handles an adverse scenario correctly without operator intervention, discovered only during routine review the next day
 - Examples: Platform API outage with graceful degradation and automatic recovery; single-leg exposure successfully managed within risk parameters
 - Expected timing: Weeks 3-6 of live trading
 - Operator's reaction shifts from "thank god it didn't blow up" to "good, that's what it's supposed to do"
 
 **Supporting Indicators:**
+
 - **Language shift:** From "the system did X" (describing individual actions) to "my trading operation generates Y" (describing aggregate outcomes)
 - **Time allocation shift:** Spending more time on Phase 2 research than Phase 1 operations indicates system has become infrastructure rather than project
 
@@ -111,6 +132,7 @@ Business success is evaluated through three formal checkpoints with explicit dec
 **Primary Question:** Does the system demonstrate positive expected value that's statistically distinguishable from zero after all transaction costs?
 
 **Success Criteria:**
+
 - 100+ completed arbitrage cycles executed on real capital
 - Average net edge per completed cycle: 0.4%+ after all costs
 - Hit rate on executed opportunities: >65%
@@ -120,6 +142,7 @@ Business success is evaluated through three formal checkpoints with explicit dec
 - At least one risk limit approached (not breached) — confirms limits are calibrated at correct level
 
 **Decision Outcomes:**
+
 - **Proceed to scale:** Per-trade economics positive and statistically significant (profit factor >1.3 over 100+ cycles), execution quality within 40% of backtest. Scale capital to 25%, continue deployment plan.
 - **Extend validation:** Per-trade economics positive but not yet statistically significant (profit factor 1.0-1.3, or fewer than 100 cycles). Continue at minimum capital for 4-6 additional weeks.
 - **Shut down:** Per-trade economics negative (profit factor <1.0 over 60+ cycles), OR catastrophic contract matching failure occurred, OR execution quality <50% of backtest with no identifiable fixable cause.
@@ -129,6 +152,7 @@ Business success is evaluated through three formal checkpoints with explicit dec
 **Primary Question:** Can the system generate target returns at full capital deployment with operational autonomy?
 
 **Success Criteria:**
+
 - Capital at or near full target deployment (scaled through 25% increments, each validated for 2+ weeks)
 - Returns consistent with 15% annualized target on trailing 90-day basis (minimum acceptable: 10%+ annualized)
 - Sharpe ratio >1.5 on rolling basis (target: 2.0)
@@ -140,6 +164,7 @@ Business success is evaluated through three formal checkpoints with explicit dec
 - Operator actively spending time on Phase 2 research rather than Phase 1 maintenance
 
 **Decision Outcomes:**
+
 - **Shift focus to Phase 2:** System meets all three Phase 2 gate conditions (8+ weeks operational stability, sufficient data for testable hypotheses, 30-45 min daily involvement achieved). Begin Phase 2 research as parallel workstream while Phase 1 continues generating returns.
 - **Continue pure Phase 1:** System profitable but hasn't reached operational steady state (still intervening frequently, unresolved execution quality issues, insufficient data for Phase 2). Focus on hardening and optimization. Reassess Phase 2 readiness at month 9.
 - **Scale down or shut down:** Returns below 10% annualized minimum on trailing 90 days at full capital, OR max drawdown exceeded 20%, OR edge clearly degrading based on leading indicators.
@@ -149,6 +174,7 @@ Business success is evaluated through three formal checkpoints with explicit dec
 **Primary Question:** Has the system operated profitably for a full market cycle and generated the strategic positioning for next-phase evolution?
 
 **Success Criteria:**
+
 - 12 consecutive months of operation (allowing individual losing weeks, but no losing month after first quarter)
 - Cumulative returns met or exceeded 15% annualized target
 - Maximum drawdown stayed below 20% (well within 25% hard limit)
@@ -158,11 +184,13 @@ Business success is evaluated through three formal checkpoints with explicit dec
 - Phase 2 news-velocity alpha layer either in development or concluded non-viable based on data (both acceptable)
 
 **Strategic Clarity Achieved:** Clear understanding of whether this is:
+
 - $200K/year lifestyle business
 - $1M+/year operation worth scaling
 - Edge that's compressing and needs to evolve
 
 **Decision Outcomes:**
+
 - **Expand and evolve:** Phase 2 showing promising results, arbitrage system generating durable returns, competitive position strong. Begin serious Phase 2 development/deployment. Consider adding platforms, scaling capital, exploring fund structure.
 - **Maintain and harvest:** Arbitrage system works but edge slowly compressing. Phase 2 not viable or not ready. Continue operating at current scale as profitable but potentially declining income stream.
 - **Wind down:** Edge compressed to point where risk-adjusted returns no longer justify operational complexity. Close positions over 2-4 weeks, document learnings. This is a success outcome if system was profitable for 12 months and generated enough knowledge and capital to fund next venture.
@@ -172,33 +200,39 @@ Business success is evaluated through three formal checkpoints with explicit dec
 ### Technical Success
 
 **System Reliability:**
+
 - **Uptime:** 99%+ during active market hours (Mon-Fri 9am-5pm ET when prediction markets are most active), 95% overall including planned maintenance windows
 - Each hour of downtime during active hours is lost opportunity and operational risk
 - Below 98% sustained during active hours, priority shifts from alpha improvement to infrastructure hardening
 
 **Execution Quality:**
+
 - **Execution Quality Ratio:** Realized edge ÷ expected edge at entry
 - Target: >0.7 (capturing 70%+ of expected edge)
 - Alert threshold: <0.6 sustained for rolling 10-day window
 - Validates that actual execution matches backtested assumptions
 
 **Contract Matching Accuracy:**
+
 - **Zero catastrophic failures** — absolute threshold
 - Any resolution divergence causing directional loss on "matched" contracts halts trading and triggers matching system audit
 - Even one matching error means something fundamental is wrong with thesis
 
 **Single-Leg Exposure Management:**
+
 - **Target:** <5 events per month (success threshold)
 - **Alert Threshold:** >1 per week sustained for 3+ consecutive weeks triggers investigation (indicates systematic execution reliability issues)
 - **Measurement Standard:** <2 events per month for NFR compliance verification
 - **Requirement:** All events managed within acceptable loss parameters (average loss <1% of position size)
 
 **Slippage Control:**
+
 - **Average Realized Slippage vs. Modeled:** Within 25% of modeled slippage
 - Alert threshold: Excess of 25% for rolling 10-day window
 - Validates execution assumptions from backtesting; excess slippage means market microstructure changed or model was miscalibrated
 
 **Platform Relationship Health:**
+
 - **Hard Constraint:** Zero adverse platform actions (trading pattern flags, API access restrictions, punitive terms changes)
 - **Soft Metric:** API rate limit utilization <70% of published limits
 - **Rationale:** Platform relationship issues are existential risk not captured by other metrics. Getting rate-limited or flagged kills strategy regardless of execution quality.
@@ -208,22 +242,26 @@ Business success is evaluated through three formal checkpoints with explicit dec
 #### Financial Performance Metrics (Hierarchy by Importance)
 
 **1. Maximum Drawdown (Most Critical)**
+
 - Hard limit: 25% (any breach triggers immediate review and trading halt)
 - Target: <15% in any rolling 6-month period
 - Capital preservation under adverse conditions is fundamental
 
 **2. Sharpe Ratio (Edge Quality)**
+
 - Target: 2.0+ over any rolling 6-month period
 - Minimum acceptable: 1.5
 - Alert threshold: Below 1.5 sustained for 2 months warrants strategy review
 - Measures edge quality, not just magnitude
 
 **3. Profit Factor (Edge Robustness)**
+
 - Target: 1.5+ (gross wins ÷ gross losses)
 - Minimum acceptable: 1.3
 - Shutdown threshold: Below 1.0 for any rolling 30-day period after initial 3-month validation triggers automatic halt and full review
 
 **4. Net Annualized Return (Output Metric)**
+
 - Target: 15%+ annualized
 - Minimum acceptable: 10%+ annualized after all costs
 - Below 10%, risk/complexity/opportunity cost not justified
@@ -231,16 +269,19 @@ Business success is evaluated through three formal checkpoints with explicit dec
 #### Leading Indicators for Edge Degradation
 
 **Opportunity Frequency (Earliest Warning)**
+
 - Baseline: 8-12 actionable opportunities per week (Month 1)
 - Alert threshold: Sustained 30%+ decline in weekly opportunity frequency over 3-week window
 - Before edge degrades in profitability, it degrades in availability
 
 **Time-to-Convergence (Competition Indicator)**
+
 - Baseline: Dislocations persist 4-6 hours historically
 - Alert threshold: 40%+ compression in rolling 14-day median time-to-convergence
 - When dislocations close in 30-60 minutes instead of hours, competitors have entered
 
 **Order Book Depth at Execution (Extractable Edge)**
+
 - Monitor: Liquidity available at best prices, spread width trends
 - Alert: Sustained decline in average depth at execution points
 - Thinning liquidity means practical extractable edge per trade shrinks
@@ -248,10 +289,12 @@ Business success is evaluated through three formal checkpoints with explicit dec
 #### Strategic Metrics
 
 **Data Accumulation**
+
 - 12-month target: 100+ unique contract pairs traded, 500+ completed cycles, 75%+ resolution outcome data
 - This dataset is the foundation for Phase 2 and is genuinely irreplaceable
 
 **Phase 2 Readiness**
+
 - Gate condition: Can formulate and backtest 3+ specific, data-supported hypotheses about news-driven dislocation patterns
 - Assessed at 6 and 12 month checkpoints
 - If can't identify testable patterns after 12 months data, Phase 2 may not be viable
@@ -269,22 +312,26 @@ The MVP is deliberately crude. It's a validation tool, not a production system. 
 Paper trading is a permanent, platform-agnostic capability — not a transient development phase. It enables safe validation of execution logic against live market data without capital risk.
 
 **Core design:**
+
 - Decorator pattern wrapping `IPlatformConnector` — any platform can run in paper mode without connector code changes
 - Per-platform configuration via environment variables (mode, fill latency, slippage)
 - Mixed mode operation: each platform independently set to `live` or `paper`
 - Mode is immutable at runtime (requires restart to change)
 
 **State isolation:**
+
 - `is_paper` flag on positions and orders — repository-level filtering
 - Paper positions have isolated risk budgets (do not consume live limits)
 - Paper P&L excluded from live summaries by default
 
 **Ongoing use cases:**
+
 1. Pre-deployment validation of execution logic changes
 2. New platform connector onboarding (safe testing before capital commitment)
 3. Strategy parameter experimentation in parallel with live trading
 
 **Out of scope (future consideration):**
+
 - Historical replay / backtesting engine (replay recorded order books through paper trading)
 - Paper trading analytics dashboard (dedicated views beyond position tagging)
 
@@ -293,37 +340,45 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 **Core Features:**
 
 **Platform Coverage:**
+
 - One platform pair: Polymarket ↔ Kalshi only
 - One contract category: U.S. political/economic binaries (highest volume, most obvious cross-platform matches)
 
 **Contract Matching:**
+
 - Manual curation: Personal verification of 20-30 high-volume contract pairs
 - Curated pair table maintained in config file
 - Zero automation — deliberately labor-intensive but eliminates matching risk entirely
 
 **Execution:**
+
 - Sequential execution: Place more liquid leg first (typically Kalshi), then immediately place second leg on Polymarket
 - Accept leg risk: For slow-moving political contracts, prices don't move meaningfully in 10-15 seconds
-- Order book depth verification before placing any order
+- Order book depth verification before placing any order — depth-aware sizing caps position to available liquidity (minimum 25% of ideal size) rather than rejecting outright
+- **Known limitation (MVP):** Each leg computes its ideal size independently (`reservedCapitalUsd / legPrice`), producing different contract counts per leg. This creates asymmetric payoff profiles rather than perfectly hedged positions. Matched-count execution requires pre-flight dual-depth checks (Phase 1, FR-EX-08)
 
 **Exit Management:**
+
 - Fixed thresholds only:
   - Take profit: 80% of initial edge captured
   - Stop loss: 2x initial edge
   - Time-based: 48 hours before contract resolution
 
-**Risk Controls:**
+\*_Risk Controls:_
+
 - Position sizing: 3% of bankroll per arbitrage pair maximum
 - Portfolio limit: Maximum 10 simultaneous open pairs
 - Daily loss limit: 5% of bankroll enforced manually
 
 **Monitoring & Alerting:**
+
 - CSV logging: All trades, prices, fills, P&L logged to timestamped CSV files
 - Telegram alerts: Opportunity identification, execution results, exit triggers, system errors
 - Polling frequency: 30-second refresh of both platforms' order books
 - Automated single-leg detection & alerting with full context for manual decision
 
 **Build Timeline:** 3-4 weeks
+
 - Week 1: Platform API integration
 - Week 2: Arbitrage detection logic
 - Week 3: Execution logic and exit monitoring
@@ -338,6 +393,7 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 5. **Evidence that full system would capture meaningful additional edge** — manual tracking confirms opportunities missed due to MVP limitations represent material improvement opportunity
 
 **MVP Failure - Any of These:**
+
 - Profit factor below 1.0 after 50+ cycles
 - Fewer than 20 actionable opportunities identified over 8 weeks
 - Multiple contract matching errors despite manual curation
@@ -352,38 +408,45 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 **Core Architectural Pillars:**
 
 **1. Unified Cross-Platform Order Book**
+
 - Real-time normalized aggregation of liquidity across Polymarket, Kalshi, and future venues
 - Platform-agnostic abstraction layer: adding new venues is a connector implementation, not a system redesign
 - Sub-second refresh rates with graceful degradation protocols
 
 **2. Automated Contract Matching with Confidence Scoring**
+
 - NLP-based semantic matching of contract descriptions, resolution criteria, and settlement dates
 - Confidence scoring (0-100%) based on criteria alignment, with position sizing adjusted by matching confidence
 - Human-in-the-loop for edge cases: 95%+ matches auto-approve, <85% matches require manual review
 - Accumulated knowledge base of resolved matches to improve accuracy over time
 
 **3. Near-Simultaneous Cross-Platform Execution**
+
 - Coordinated order submission across heterogeneous venues (on-chain transactions + exchange API calls)
 - Intelligent leg sequencing: execute more liquid/stable leg first, adapt to venue-specific latency profiles
 - Graceful leg-risk management: if second leg fails to fill, automatically close or hedge first leg within risk parameters
 
 **4. Model-Driven Exit Framework**
+
 - Continuous recalculation of expected edge based on: fee/slippage updates, liquidity depth changes, contract matching confidence evolution, time to resolution
 - Five-criteria exit logic: (1) edge evaporation, (2) model update, (3) time decay, (4) risk budget breach, (5) liquidity deterioration
 - Captures remaining edge that fixed thresholds leave on the table
 
 **5. Portfolio-Level Risk Management**
+
 - Correlation-aware position sizing: contracts linked to same underlying event sized as portfolio, not independently
 - Dynamic risk budgets: platform counterparty limits, maximum single-leg exposure, daily loss limits with automatic trading halts
 - Monte Carlo stress testing against historical and synthetic scenarios
 
 **Operational Infrastructure:**
+
 - Lightweight web dashboard for daily 2-minute morning scan (system health, P&L, open positions, alerts)
 - Telegram alerts for real-time notifications
 - Full audit trails and compliance monitoring
 - Automated regulatory horizon scanning
 
 **Phase 1 Success Criteria:**
+
 - System running at full capital deployment ($100K-$250K)
 - Operational autonomy achieved (30-45 minute daily involvement)
 - 50+ validated cross-platform contract pairs in knowledge base
@@ -395,11 +458,13 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 **Strategic Evolution - Only When Phase 2 Gate Conditions Met:**
 
 **Gate Conditions (ALL must be met):**
+
 1. **Operational Stability:** Arbitrage system stable for 8+ consecutive weeks with no major incidents
 2. **Data Sufficiency:** Enough live data (3+ months across multiple event categories) to formulate testable hypotheses about news-driven edge
 3. **Freed Cognitive Bandwidth:** Operating arbitrage system in 30-45 minutes daily consistently
 
 **News-Velocity Alpha Layer:**
+
 - News ingestion pipeline monitoring feeds, social media, economic data releases
 - Correlate news events with observed cross-platform price movements
 - Pure analysis for first 4-6 weeks, no trading implications
@@ -407,20 +472,24 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 - Arbitrage system gains "heads up" that dislocation is likely, enabling pre-positioning or faster reaction
 
 **Third Platform Addition:**
+
 - Decision depends on whether edge is real on two platforms and whether additional platforms show sufficient unique liquidity
 - Requires validated additional fragmentation and liquidity depth
 
 **Ring 2: Infrastructure Productization (18-24 Months - Optional)**
+
 - Package system as deployable infrastructure for other systematic traders
 - Clean documentation, configurable parameters, pluggable platform connectors
 - Justifies architectural investments that seemed over-engineered for single-user MVP
 
 **Ring 3: Institutional Scaling (24+ Months - Contingent)**
+
 - Fund structure for managing external capital
 - Multi-user access, investor reporting, institutional compliance frameworks
 - Contingent on durable edge demonstration and regulatory clarity
 
 **5-Year Speculative Vision:**
+
 - Prediction market infrastructure provider ("Bloomberg Terminal for prediction markets")
 - Cross-asset event-driven trading (prediction markets + traditional financial instruments)
 - These shouldn't influence near-term decisions but provide strategic direction for "what comes after Phase 2?"
@@ -452,6 +521,7 @@ The system detected the problem instantly and gave him everything he needed to d
 **Climax:**
 
 Week 8: Arbi opens his tracking spreadsheet. The numbers:
+
 - 56 completed cycles
 - Profit factor: 1.28 (comfortably above 1.2 threshold)
 - Hit rate: 68% (above 65% target)
@@ -468,6 +538,7 @@ Arbi starts building Phase 1 features that week — unified order book, NLP cont
 The transition from "experimental project" to "reliable infrastructure" has begun.
 
 **Requirements Revealed:**
+
 - Real-time alerting with full context (Telegram integration)
 - Single-leg exposure detection and operator notification
 - CSV-based logging for daily review
@@ -486,6 +557,7 @@ The transition from "experimental project" to "reliable infrastructure" has begu
 Monday morning, 7:15 AM. Arbi pours coffee and opens the web dashboard on his laptop. The Phase 1 system is now fully operational — all five architectural pillars live, running at 50% of target capital ($50K deployed), managing 18 open arbitrage pairs across Polymarket and Kalshi.
 
 The morning scan takes 2 minutes:
+
 - **System Health:** Green. All APIs connected, data feeds fresh, execution engine operational.
 - **Net P&L (trailing 7 days):** +$1,247 (+2.5% weekly). Slightly ahead of 15% annualized target.
 - **Execution Quality Ratio:** 0.74 (above 0.7 target — system capturing 74% of expected edge at entry).
@@ -497,6 +569,7 @@ Everything nominal except the one contract match that needs his judgment.
 **The Daily Routine:**
 
 Arbi clicks into the alert. Two contracts displayed side-by-side:
+
 - Polymarket: "Fed cuts rates by 0.25% or more at March meeting"
 - Kalshi: "Fed Funds rate 0.25% lower on March 20 than February 28"
 
@@ -507,6 +580,7 @@ Decision time: 60 seconds. Arbi reads both resolution criteria. The probability 
 Midday, 12:30 PM: Arbi glances at the dashboard on his phone while grabbing lunch. System health still green. No new alerts. He doesn't open the full interface — the glance is habit, not necessity.
 
 Evening, 7:00 PM: Arbi spends 20 minutes reviewing the week's performance. Key metrics:
+
 - Weekly return: On track for 15% annualized
 - Autonomy ratio: 94:1 (94 automated decisions, 1 manual intervention this week)
 - Average slippage: 0.31% vs. 0.29% modeled (within 25% tolerance)
@@ -521,6 +595,7 @@ The day ends with no drama. The system executed 3 new arbitrage pairs, closed 2 
 The language has shifted: Arbi no longer thinks "the system executed trades today." He thinks "my trading operation generated $180 today." It's infrastructure.
 
 **Requirements Revealed:**
+
 - Lightweight web dashboard with 2-minute morning scan view (system health, P&L, execution quality, open positions, alerts)
 - Contract matching approval workflow with side-by-side resolution criteria comparison
 - NLP confidence scoring with auto-approval threshold (85%+)
@@ -546,6 +621,7 @@ Arbi is away from his desk, working on Phase 2 research in another room. His pho
 The system detected that Polymarket's real-time data feed died. It doesn't know why — could be Polymarket's infrastructure issue, could be network problem, could be rate limiting. What matters: the system can't trust real-time prices from Polymarket anymore.
 
 The graceful degradation protocol kicked in automatically:
+
 1. Cancelled all pending Polymarket orders (don't trade on stale data)
 2. Stopped initiating new arbitrage pairs involving Polymarket
 3. Switched existing Polymarket positions to polling mode (less precise, but functional)
@@ -556,6 +632,7 @@ Arbi opens the dashboard. The system health indicator shows **Yellow** (degraded
 **Decision Point:**
 
 Arbi has three options:
+
 1. **Let it run:** The system is handling it. Existing Polymarket positions are still monitored, just on slower polling. If the websocket comes back (often does within 5-10 minutes), system auto-recovers.
 2. **Investigate:** Check if this is a known Polymarket issue (Twitter, their status page) or something specific to his connection.
 3. **Manual intervention:** Close all Polymarket positions proactively to avoid exposure during degraded monitoring.
@@ -575,6 +652,7 @@ The system health indicator turns **Green**. Total outage duration: 9 minutes 15
 **Resolution:**
 
 That evening, Arbi reviews the incident in detail. The system's audit log shows:
+
 - Detection latency: 81 seconds (the websocket timeout threshold — reasonable)
 - Actions taken: All correct per degradation protocol
 - Recovery: Automatic, no manual intervention required
@@ -594,6 +672,7 @@ Arbi reviews the 6 positions. Three are within 24 hours of resolution (will exit
 Decision: Close the thin-edge position now, freeing up correlation budget without sacrificing meaningful returns. He executes the manual close via the dashboard. The system logs the decision and resumes normal operation with freed correlation budget.
 
 **Requirements Revealed:**
+
 - Real-time platform API health monitoring with automatic degradation detection
 - Graceful degradation protocols: cancel pending orders, stop new positions, maintain existing positions on degraded monitoring
 - Automatic recovery when platform APIs restore
@@ -623,6 +702,7 @@ Sarah has 30 minutes allocated for this review. She's not looking at individual 
 Sarah opens the compliance report first. Executive summary on page 1:
 
 **Trading Activity Summary (Q1 2026)**
+
 - Total trades executed: 347 (173 arbitrage pairs, 1 partial fill)
 - Platforms: Polymarket (174 trades), Kalshi (173 trades)
 - Contract categories: U.S. political events (89%), Economic indicators (11%)
@@ -630,22 +710,26 @@ Sarah opens the compliance report first. Executive summary on page 1:
 - Regulatory alerts flagged: 0
 
 **Platform Relationship Health:**
+
 - API rate limit utilization: Polymarket 43% average, Kalshi 51% average (both well below 70% threshold)
 - Platform communications: 2 routine fee change notifications (logged), 0 adverse actions
 - Terms of service violations: 0
 
 **Wash Trading Analysis:**
+
 - Cross-platform opposite positions: 173 pairs (expected for arbitrage strategy)
 - All cross-platform pairs documented with arbitrage rationale and timestamp correlation
 - No same-platform wash trading patterns detected
 - Average time between opposite leg placements: 8.3 seconds (consistent with arbitrage execution, not manipulation)
 
 **Anti-Spoofing Compliance:**
+
 - Order cancellation rate: 2.1% (low, consistent with execution-focused strategy)
 - No rapid place-cancel patterns flagged
 - All cancelled orders logged with cancellation rationale
 
 **Regulatory Horizon Scan (Q1 2026):**
+
 - CFTC filings mentioning prediction markets: 3 routine filings, 0 enforcement actions
 - Congressional hearings: 0
 - Platform regulatory status changes: Kalshi added new contract categories (no impact on trading strategy)
@@ -654,6 +738,7 @@ Sarah opens the compliance report first. Executive summary on page 1:
 **The Verification:**
 
 Sarah spot-checks 5 random trades from the audit trail CSV. For each trade, she verifies:
+
 - Arbitrage rationale documented (opposite positions on different platforms, near-simultaneous timing)
 - Timestamps consistent with legitimate execution (not spoofing)
 - Contract resolution criteria match across platforms (not manipulating divergent outcomes)
@@ -677,6 +762,7 @@ Sarah sends her quarterly summary back to Arbi:
 Total review time: 22 minutes. Sarah can confidently defend this trading activity if questioned. The automated compliance report gave her exactly what she needed to assess regulatory risk without digging through 347 individual trades.
 
 **Requirements Revealed:**
+
 - Automated quarterly compliance report generation
   - Trading activity summary (volume, platforms, categories)
   - Wash trading analysis with cross-platform rationale documentation
@@ -738,9 +824,11 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **FR-EX-01 [MVP]:** System shall coordinate near-simultaneous order submission across platforms (both legs submitted within same event loop cycle, target: <100ms between submissions).
 
-**FR-EX-02 [MVP]:** System shall execute more liquid leg first, then immediately execute second leg (sequential execution with accepted leg risk for MVP).
+**FR-EX-02 [MVP]:** System shall execute more liquid leg first, then immediately execute second leg (sequential execution with accepted leg risk for MVP). Note: primary leg is submitted before secondary depth is verified, so leg sizes may differ. The position records actual per-leg sizes. _(Clarified: Story 6.5.5b.)_
 
-**FR-EX-03 [MVP]:** System shall verify order book depth before placing any order (minimum: size sufficient for target position at expected price).
+**FR-EX-03 [MVP]:** System shall verify order book depth before placing any order. If depth is insufficient for the full target position but meets the minimum fill threshold (configurable, default: 25% of ideal size), the system shall cap position size to available depth rather than rejecting the trade outright. If depth is below the minimum fill threshold, the trade is rejected. _(Amended: Story 6.5.5b — depth-aware position sizing replaces binary pass/fail depth check.)_
+
+**FR-EX-03a [MVP]:** After depth-aware sizing reduces a position, the system shall re-validate the net edge by recalculating the gas fraction over the actual (reduced) position size. If the recalculated net edge falls below the minimum edge threshold (FR-AD-03), the trade is rejected. _(Added: Story 6.5.5b — prevents execution of trades where gas costs erode profitability at reduced sizes.)_
 
 **FR-EX-04 [MVP]:** System shall detect single-leg exposure within 5 seconds of incomplete arbitrage pair (one leg filled, other failed).
 
@@ -750,11 +838,11 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **FR-EX-07 [Phase 1]:** System shall automatically close or hedge first leg if second leg fails to fill within configurable timeout (default: 5 seconds), keeping loss within acceptable parameters.
 
-**FR-EX-08 [Phase 1]:** System shall adapt leg sequencing based on venue-specific latency profiles (execute faster platform first when latency difference >200ms).
+**FR-EX-08 [Phase 1]:** System shall adapt leg sequencing based on venue-specific latency profiles (execute faster platform first when latency difference >200ms). This shall include pre-flight depth verification on both legs before submitting either order, enabling matched contract counts (`idealCount = reservedCapitalUsd / (buyPrice + sellPrice)`) for true hedged positions. _(Amended: Story 6.5.5b identified that the MVP sequential model produces mismatched contract counts.)_
 
 ### Risk Management Module
 
-**FR-RM-01 [MVP]:** System shall enforce position sizing limit of 3% of bankroll per arbitrage pair maximum.
+**FR-RM-01 [MVP]:** System shall enforce position sizing limit of 3% of bankroll per arbitrage pair maximum. Actual position size may be reduced below this cap by depth-aware sizing (FR-EX-03) when order book liquidity is insufficient for the full allocation.
 
 **FR-RM-02 [MVP]:** System shall enforce portfolio limit of maximum 10 simultaneous open pairs (MVP), 25 pairs (Phase 1).
 
@@ -841,17 +929,20 @@ Functional requirements define the capabilities the system must provide, organiz
 ### Compliance & Regulatory
 
 **Data Retention Requirements:**
+
 - **Mandatory retention period:** 7 years for all trade logs, consistent with IRS record-keeping requirements and general financial regulatory expectations
 - **Storage format:** Structured JSON with CSV export capability
 - **Non-negotiable:** This is a hard system requirement, not optional
 - **Scope:** All trades, executions, order placements, cancellations, manual interventions, risk events, and compliance reports
 
 **KYC/AML Obligations:**
+
 - **Platform-handled:** All KYC/AML compliance is managed by trading platforms (Kalshi regulated entity compliance, Polymarket wallet-based access)
 - **System responsibility:** None. The system trades through pre-authenticated accounts and has no direct KYC obligations
 - **Entity compliance:** Operator entities complete platform-level KYC during account setup, not at system runtime
 
 **CFTC Reporting Thresholds:**
+
 - **Current scale:** At $100K-$250K capital deployment, well below large trader reporting thresholds
 - **Proactive monitoring:** System tracks cumulative position sizes per contract category
 - **Alert threshold:** 50% of any known reporting threshold triggers soft alert (notification, not trading halt)
@@ -860,24 +951,28 @@ Functional requirements define the capabilities the system must provide, organiz
 ### Technical Constraints
 
 **API Rate Limiting & Request Management:**
+
 - **Automatic request throttling:** Exponential backoff when approaching rate limits
 - **Proactive monitoring:** Track rolling request counts against known platform limits
 - **Pre-emptive slowdown:** Reduce polling frequency before hitting limits (target: <70% utilization)
 - **This is a functional requirement,** not just a metric - system must enforce rate limit compliance to prevent platform restrictions
 
 **Wallet Security (Polymarket Authentication):**
+
 - **MVP standard:** Private keys stored in environment variables, never in code or config files
 - **Phase 1 requirement:** Secrets management service supporting key rotation, audit logging, encryption at rest, and API-based credential retrieval
 - **Hardware wallet consideration:** Ideal for security but adds execution latency - defer evaluation to Phase 1 based on performance requirements
 - **Key rotation:** Support key rotation without system downtime (Phase 1)
 
 **On-Chain Privacy:**
+
 - **MVP approach:** Minimal concern at current capital scale ($100K-$250K)
 - **Known limitation:** Polymarket wallet address publicly visible on Polygon blockchain
 - **Trade-off accepted:** Privacy solutions add complexity not justified at current scale
 - **Future consideration:** If scaling to multi-million dollar operations (Phase 2+), evaluate privacy solutions (fresh wallets per trade, mixers, privacy-preserving protocols)
 
 **Cross-Border Trading Compliance:**
+
 - **Per-platform restrictions:**
   - Kalshi: U.S.-only, requires U.S. entity/residency compliance
   - Polymarket: Global access with platform-specific geo-restrictions
@@ -888,26 +983,30 @@ Functional requirements define the capabilities the system must provide, organiz
 ### Integration Requirements
 
 **Platform API Integration:**
+
 - **Authentication:** Secure API key management with platform-specific authentication flows
 - **Connection resilience:** Handle platform API outages, latency spikes, and version changes gracefully
 - **Data normalization:** Transform heterogeneous platform data formats into unified internal representation
 
 **Secrets Management Integration (Phase 1):**
+
 - **External secrets service:** Integration with secrets management service supporting key rotation, audit logging, and encryption at rest
 - **Runtime key retrieval:** Fetch private keys and API credentials at startup, not stored in process memory long-term
 - **Audit logging:** All secrets access logged for security audit trail
 
 **Regulatory Data Sources (Compliance Monitoring):**
 
-**Scope Clarification:** This is automated *monitoring* and *alerting*, NOT automated legal analysis. System flags potentially relevant regulatory developments for operator review; operator (with legal counsel as needed) interprets impact and decides on response.
+**Scope Clarification:** This is automated _monitoring_ and _alerting_, NOT automated legal analysis. System flags potentially relevant regulatory developments for operator review; operator (with legal counsel as needed) interprets impact and decides on response.
 
 **Automated Monitoring (Phase 1):**
+
 - **CFTC filings:** RSS feed monitoring of CFTC.gov public filings, keyword alerts for "prediction market", "event contract", "Kalshi", "Polymarket"
 - **Platform status:** API polling of Kalshi/Polymarket status pages (hourly), email forwarding rules for platform regulatory announcements to system monitoring inbox
 - **Google Alerts:** Configured for search terms: "prediction market regulation", "CFTC prediction market", "Kalshi regulatory", "Polymarket regulatory"
 - **Congressional calendar:** Manual check (operator responsibility) - not automated due to complexity and low signal-to-noise ratio
 
 **Alert Triggers:**
+
 - Any CFTC filing containing prediction market keywords: Immediate alert to operator with filing link and matched keywords
 - Platform service disruption >2 hours: High-priority alert (potential regulatory action or compliance issue)
 - Google Alert match on regulatory keywords: Daily digest sent to operator for review
@@ -922,6 +1021,7 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **Active Trading Week Conditions:**
 An "active trading week" is defined as a 7-day period meeting all of the following conditions:
+
 - **Both platforms operational:** Polymarket and Kalshi APIs available with <5% downtime during active market hours (Mon-Fri 9am-5pm ET)
 - **Normal market conditions:** No extraordinary events disrupting prediction market activity (platform outages >4 hours, major regulatory announcements, extreme volatility events)
 - **Sufficient liquidity:** Average order book depth at best prices >$500 equivalent per side across tracked contract categories
@@ -929,6 +1029,7 @@ An "active trading week" is defined as a 7-day period meeting all of the followi
 
 **Actionable Opportunity Criteria:**
 An opportunity qualifies as "actionable" if it meets ALL of the following:
+
 - **Edge threshold:** Net expected edge >0.8% after all transaction costs (fees, gas, slippage)
 - **Liquidity requirement:** Order book depth sufficient to execute target position size (3% of bankroll) at expected prices
 - **Risk budget availability:** Execution would not breach any risk limits (correlation cluster <15%, position count <10 for MVP/<25 for Phase 1, daily capital deployment within target)
@@ -936,12 +1037,14 @@ An opportunity qualifies as "actionable" if it meets ALL of the following:
 - **Timing validity:** Opportunity persists for minimum 10 seconds (filters out fleeting noise, ensures genuine dislocation)
 
 **Baseline Rationale:**
+
 - **8 opportunities/week = minimum viable:** Indicates edge exists but barely sufficient for target returns (15% annualized)
 - **12 opportunities/week = healthy:** Comfortable margin above minimum, indicates robust arbitrage environment
 - **<6 opportunities/week sustained for 3 weeks:** Alert threshold - edge may be compressing, triggers investigation
 - **<4 opportunities/week sustained for 3 weeks:** Critical threshold - strategy viability questionable, consider scaling down or pausing
 
 **Measurement & Tracking:**
+
 - Log all detected opportunities (actionable + filtered) with reasons for filtering
 - Weekly summary: Total opportunities detected, actionable count, filter reasons breakdown
 - Trend analysis: 4-week rolling average to smooth weekly variance, alert if below baseline
@@ -983,12 +1086,14 @@ Arbitrage pairs grouped into correlation clusters based on underlying event cate
 **Portfolio Correlation Calculation:**
 
 For each cluster, calculate total exposure:
+
 ```
 Cluster Exposure = Sum of (Position Size × Entry Price) for all open pairs in cluster
 Cluster Exposure % = (Cluster Exposure ÷ Total Bankroll) × 100%
 ```
 
 **Risk Limits:**
+
 - **Hard limit:** No single cluster can exceed 15% of bankroll
 - **Soft limit:** Alert if any cluster exceeds 12% (warning - approaching limit)
 - **Aggregate limit:** Sum of all cluster exposures should not exceed 50% of bankroll (prevents over-concentration even if no single cluster breaches)
@@ -996,17 +1101,20 @@ Cluster Exposure % = (Cluster Exposure ÷ Total Bankroll) × 100%
 **Position Sizing Adjustment:**
 
 When opening new position in cluster already >8% exposure:
+
 ```
 Adjusted Position Size = Base Size × (1 - (Current Cluster % ÷ 15%))
 ```
 
 Example:
+
 - Fed Policy cluster currently at 10% of bankroll
 - New Fed opportunity detected, base size would be 3% of bankroll
 - Adjusted size = 3% × (1 - (10% ÷ 15%)) = 3% × 0.33 = 1% of bankroll
 - Rationale: Reduce new position size as cluster exposure approaches limit
 
 **Enforcement:**
+
 - Before executing any trade, check cluster classification for both contracts
 - Calculate cluster exposure with new position
 - If new exposure would breach 15% hard limit: Reject trade, log as "filtered by correlation limit"
@@ -1014,12 +1122,14 @@ Example:
 
 **Operator Triage Interface (Phase 1):**
 When correlation limit approached, dashboard displays:
+
 - Current positions in affected cluster
 - Remaining edge for each position (calculated by model-driven exit framework)
 - Recommendation: Close position(s) with lowest remaining edge to free correlation budget
 - One-click close action for operator decision
 
 **Knowledge Base:**
+
 - System maintains cluster classification for all known contract pairs
 - Operator can override cluster assignment if domain knowledge indicates lower/higher correlation
 - Overrides logged to audit trail with rationale
@@ -1028,43 +1138,47 @@ When correlation limit approached, dashboard displays:
 
 **Purpose:**
 The knowledge base is a strategic asset accumulating validated contract matches and resolution outcomes. This data drives three capabilities:
+
 1. **Confidence scoring improvement:** Resolution outcomes validate/invalidate semantic matching logic, feedback loop improves Phase 1 NLP accuracy
 2. **Operator efficiency:** Recurring contracts (monthly Fed meetings, quarterly GDP) auto-approved based on historical validation
 3. **Risk management:** Tracks divergent resolutions (matches that should have converged but didn't) to refine matching criteria
 
 **Storage Format:**
+
 - **Technology:** SQLite database (simple, serverless, file-based, 7-year retention compatible)
 - **Table:** `contract_matches` with following schema
 
 **Schema Fields:**
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| match_id | INTEGER PRIMARY KEY | Auto-increment unique identifier | 1 |
-| polymarket_contract_id | TEXT | Polymarket contract identifier | "0x3a4b..." |
-| kalshi_contract_id | TEXT | Kalshi contract ticker | "FEDRATE-23DEC-T0.25" |
-| polymarket_description | TEXT | Full contract description from Polymarket | "Fed cuts rates by 0.25% or more at December meeting" |
-| kalshi_description | TEXT | Full contract description from Kalshi | "Fed Funds rate 0.25% lower on Dec 20 than Nov 30" |
-| resolution_criteria_hash | TEXT | SHA-256 hash of normalized resolution criteria (both platforms) | "a3f2..." |
-| confidence_score | REAL | NLP confidence score 0-100% (NULL for MVP manual matches) | 87.5 |
-| operator_approved | BOOLEAN | Human verification flag | TRUE |
-| operator_approval_timestamp | TEXT | ISO 8601 timestamp of approval | "2026-02-15T14:32:00Z" |
-| operator_rationale | TEXT | Approval notes/concerns | "Meeting date vs resolution date difference, negligible risk" |
-| first_traded_timestamp | TEXT | First time this pair was traded | "2026-02-16T09:15:00Z" |
-| total_cycles_traded | INTEGER | How many times this pair was arbitraged | 12 |
-| polymarket_resolution | TEXT | Final resolution outcome ("YES", "NO", "INVALID", NULL if unresolved) | "YES" |
-| kalshi_resolution | TEXT | Final resolution outcome | "YES" |
-| resolution_timestamp | TEXT | When contracts resolved | "2026-12-20T14:00:00Z" |
-| resolution_diverged | BOOLEAN | Did resolutions differ? Critical flag for matching error detection | FALSE |
-| divergence_notes | TEXT | If diverged, why? Root cause analysis | NULL |
+| Field                       | Type                | Description                                                           | Example                                                       |
+| --------------------------- | ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
+| match_id                    | INTEGER PRIMARY KEY | Auto-increment unique identifier                                      | 1                                                             |
+| polymarket_contract_id      | TEXT                | Polymarket contract identifier                                        | "0x3a4b..."                                                   |
+| kalshi_contract_id          | TEXT                | Kalshi contract ticker                                                | "FEDRATE-23DEC-T0.25"                                         |
+| polymarket_description      | TEXT                | Full contract description from Polymarket                             | "Fed cuts rates by 0.25% or more at December meeting"         |
+| kalshi_description          | TEXT                | Full contract description from Kalshi                                 | "Fed Funds rate 0.25% lower on Dec 20 than Nov 30"            |
+| resolution_criteria_hash    | TEXT                | SHA-256 hash of normalized resolution criteria (both platforms)       | "a3f2..."                                                     |
+| confidence_score            | REAL                | NLP confidence score 0-100% (NULL for MVP manual matches)             | 87.5                                                          |
+| operator_approved           | BOOLEAN             | Human verification flag                                               | TRUE                                                          |
+| operator_approval_timestamp | TEXT                | ISO 8601 timestamp of approval                                        | "2026-02-15T14:32:00Z"                                        |
+| operator_rationale          | TEXT                | Approval notes/concerns                                               | "Meeting date vs resolution date difference, negligible risk" |
+| first_traded_timestamp      | TEXT                | First time this pair was traded                                       | "2026-02-16T09:15:00Z"                                        |
+| total_cycles_traded         | INTEGER             | How many times this pair was arbitraged                               | 12                                                            |
+| polymarket_resolution       | TEXT                | Final resolution outcome ("YES", "NO", "INVALID", NULL if unresolved) | "YES"                                                         |
+| kalshi_resolution           | TEXT                | Final resolution outcome                                              | "YES"                                                         |
+| resolution_timestamp        | TEXT                | When contracts resolved                                               | "2026-12-20T14:00:00Z"                                        |
+| resolution_diverged         | BOOLEAN             | Did resolutions differ? Critical flag for matching error detection    | FALSE                                                         |
+| divergence_notes            | TEXT                | If diverged, why? Root cause analysis                                 | NULL                                                          |
 
 **Feedback Loop into Confidence Scoring (Phase 1):**
+
 - After contract resolution, compare `polymarket_resolution` to `kalshi_resolution`
 - If both "YES" or both "NO": Positive validation, increase future confidence for similar semantic patterns
 - If diverged: Negative signal, analyze `divergence_notes` to identify failure pattern, reduce confidence for similar patterns, alert operator
 - Quarterly batch analysis: Review all resolved matches, retrain/calibrate NLP confidence model based on outcomes
 
 **Operator Interface (Phase 1):**
+
 - Dashboard displays pending matches requiring approval (confidence <85%)
 - Side-by-side view: Both contract descriptions, resolution criteria, confidence score, similar historical matches
 - Approval action logs `operator_rationale` to knowledge base
@@ -1079,18 +1193,21 @@ Polymarket uses decimal probabilities (0.00 to 1.00), Kalshi uses cents (0¢ to 
 All internal calculations use **decimal probability format (0.00 to 1.00)**, matching Polymarket convention.
 
 **Kalshi → Internal Conversion:**
+
 ```
 Internal Price = Kalshi Price (¢) ÷ 100
 Example: Kalshi showing 62¢ → Internal representation 0.62
 ```
 
 **Internal → Kalshi Conversion (for order submission):**
+
 ```
 Kalshi Price (¢) = Internal Price × 100, rounded to nearest cent
 Example: Internal 0.625 → Kalshi 62¢ or 63¢ (rounding decision: round to nearest)
 ```
 
 **Edge Calculation Formula:**
+
 ```
 Net Edge = |Polymarket Price - Kalshi Price| - Total Fees - Gas Estimate
 
@@ -1103,27 +1220,43 @@ Where:
 Example:
   Polymarket: 0.58 (buy YES at 58%)
   Kalshi: 62¢ → 0.62 (sell YES at 62%, equivalent to buy NO at 38%)
-  Polymarket fee: 2% = 0.02
-  Kalshi fee: 1.5% = 0.015
+  Polymarket fee: 2% flat = 0.02
+  Kalshi fee: dynamic = 0.07 × (1-P) rate. At P=0.62: rate = 0.07 × 0.38 = 0.0266
   Gas: $0.50 for $300 position = 0.0017
 
-  Gross Edge = |0.58 - (1 - 0.62)| = |0.58 - 0.38| = 0.20 (20%)
-  Net Edge = 0.20 - 0.02 - 0.015 - 0.0017 = 0.1633 (16.33% net profit potential)
+  Gross Edge = sellPrice - buyPrice = 0.62 - 0.58 = 0.04 (4%)
+  Buy fee cost (Polymarket at 0.58): 0.58 × 0.02 = 0.0116
+  Sell fee cost (Kalshi at 0.62): 0.62 × 0.0266 = 0.01649
+  Net Edge = 0.04 - 0.0116 - 0.01649 - 0.0017 = 0.01021 (1.02% net profit potential)
 ```
 
+**Edge Re-validation at Execution (FR-EX-03a):**
+
+When depth-aware sizing (FR-EX-03) reduces position size, the gas fraction increases because fixed gas costs are amortized over fewer contracts. The execution service recalculates edge before proceeding:
+
+```
+Original: Gas $0.50 / $300 position = 0.0017 → Net Edge 16.33%
+Depth-capped to 25%: Gas $0.50 / $75 position = 0.0067 → Net Edge 15.83%
+```
+
+If the recalculated net edge drops below the minimum threshold (0.8%), the trade is rejected. This prevents executing trades that passed detection at full size but are unprofitable at reduced size. _(Added: Story 6.5.5b.)_
+
 **Rounding Considerations:**
+
 - Kalshi only accepts integer cent prices (no fractional cents)
 - When converting internal price to Kalshi for order submission: Round to nearest cent (0.625 → 63¢)
 - Rounding can introduce ±0.5¢ (±0.005) variance in executed price vs. calculated edge
 - This variance is acceptable: Edge threshold (0.8% minimum) provides >10× margin over rounding error
 
 **Fee Normalization:**
-Both platforms charge percentage fees, already in compatible format:
-- Polymarket: 2% taker fee → 0.02 multiplier
-- Kalshi: 1.5% taker fee → 0.015 multiplier
+Platforms use different fee models, normalized via `FinancialMath.calculateTakerFeeRate()`:
+
+- Polymarket: 2% flat taker fee → 0.02 rate (constant)
+- Kalshi: Dynamic taker fee = `0.07 × P × (1-P)` per contract. Rate = `0.07 × (1-P)`. Peak 1.75% at P=0.50, approaches 0% at P→1.00. `FeeSchedule.takerFeeForPrice` callback provides exact per-price computation; `takerFeePercent: 1.75` is the worst-case upper bound for pre-screening.
 - Gas (Polymarket only): Convert dollar cost to percentage of position size
 
 **Validation:**
+
 - After normalization, sanity check: All prices should be 0.00 ≤ price ≤ 1.00
 - If any price outside range: Log error, reject opportunity, alert operator (likely data corruption or API change)
 
@@ -1254,6 +1387,7 @@ This normalized format enables the Detection Module to perform cross-platform co
 ### State Recovery & Crash Handling
 
 **State Persistence:**
+
 - **What to persist:** Open positions (platform IDs, entry prices, sizes, timestamps), risk budgets (daily loss, correlation exposure by cluster, position count), pending orders (order IDs, submission timestamps, expected fills), contract matching knowledge base
 - **When to persist:** After each state change (position opened/closed, order submitted, risk budget updated), maximum 5-second intervals for periodic snapshots
 - **Where to persist:** Local SQLite database for structured data (positions, orders, risk state) + JSON files for configuration (contract pairs, compliance rules) with atomic write-rename pattern to prevent corruption
@@ -1266,6 +1400,7 @@ This normalized format enables the Detection Module to perform cross-platform co
 4. **Crash during state write (partial corruption):** SQLite rollback journal ensures atomicity; JSON config uses write-to-temp + atomic rename to prevent corruption
 
 **Startup Reconciliation Procedure:**
+
 1. Load last known state from SQLite (timestamp of last write)
 2. Query Polymarket and Kalshi APIs for all fills/orders in time window: [last_state_timestamp - 60s, current_time]
 3. Match API-reported fills against local state file
@@ -1275,21 +1410,25 @@ This normalized format enables the Detection Module to perform cross-platform co
 ### Deployment & Infrastructure Requirements
 
 **Deployment Target:**
+
 - **Host:** Single Linux server (cloud VM or bare metal), Ubuntu 20.04+ or Debian 11+
 - **Minimum specifications:** 2 vCPU, 4GB RAM, 50GB SSD storage (logs and state data), stable internet with <50ms latency to major cloud regions
 - **Network requirements:** Outbound HTTPS (443) for platform APIs, outbound access to Polygon RPC nodes (Polymarket), inbound access for dashboard (port 8080, localhost only for MVP)
 
 **Host Failure Handling:**
+
 - **MVP:** Manual restart required - operator receives alert (via external monitoring service or platform API errors), investigates failure, restarts process manually, reviews startup reconciliation for data integrity
 - **Phase 1:** Automated failover to standby host - health check service detects primary failure (missed 3 consecutive heartbeats over 90 seconds), triggers standby activation, standby host loads state from shared storage (NFS or S3), resumes operation, alerts operator of failover event
 
 **Backup & Restore:**
+
 - **Backup scope:** Stateful data (open positions SQLite database, contract matching knowledge base, audit logs, configuration files)
 - **Backup frequency:** Hourly automated snapshots to local backup directory + cloud storage (S3 or equivalent), retained for 7 days rolling window
 - **Backup verification:** Weekly automated restore test to separate environment, validates backup integrity and restore procedure
 - **Restore procedure:** (1) Stop trading process, (2) Restore SQLite database from most recent backup, (3) Verify data integrity (row counts, timestamp ranges), (4) Start process with reconciliation mode enabled, (5) Review reconciliation results before resuming trading
 
 **Deployment Without Data Loss:**
+
 - **Blue/Green deployment approach:**
   1. Start new process version (green) in standby mode (connects to APIs for data feeds but does not trade)
   2. Verify green connectivity and health (all platform APIs connected, data feeds operational, no errors for 60 seconds)
@@ -1303,6 +1442,7 @@ This normalized format enables the Detection Module to perform cross-platform co
 
 **Problem Definition:**
 Two or more arbitrage opportunities detected simultaneously (within same detection cycle) that would individually be acceptable, but combined would breach risk limits. Examples:
+
 - Two Fed policy contracts detected, each using 8% correlation budget, combined 16% exceeds 15% cluster limit
 - Three opportunities detected when portfolio already has 8 open pairs, accepting all three would breach 10-pair maximum
 - Multiple opportunities totaling 12% capital when daily deployed capital already at 90% of target
@@ -1310,6 +1450,7 @@ Two or more arbitrage opportunities detected simultaneously (within same detecti
 **Solution: Sequential Execution Locking with Atomic Risk Budget Reservation**
 
 **Design:**
+
 1. **Detection:** Arbitrage detection module identifies all opportunities in current cycle, scores and ranks by expected edge
 2. **Reservation:** For each opportunity in rank order (highest edge first):
    - Attempt atomic risk budget reservation (correlation exposure, position count, daily capital)
@@ -1322,10 +1463,12 @@ Two or more arbitrage opportunities detected simultaneously (within same detecti
    - If execution failed: Release reservation (return risk budget to available pool)
 
 **Atomic Reservation Implementation:**
+
 - **Lock-based approach (MVP):** Global execution lock ensures only one opportunity processed at a time, reservation check + execution happens atomically within lock
 - **Optimistic concurrency (Phase 1):** Risk budget tracked with version counter, reservation attempts increment version, conflicts detected via version mismatch and retried
 
 **Logging & Observability:**
+
 - All filtered opportunities logged with reason: "Filtered: correlation limit (Fed Policy cluster at 14%, opportunity requires 3%, limit 15%)"
 - Daily summary includes filtered opportunity count and reasons, alerts operator if >20% of opportunities filtered (indicates risk limits may be too conservative)
 
@@ -1335,68 +1478,72 @@ Centralized error taxonomy covering all system failure modes with standardized c
 
 **Platform API Errors (1000-1999):**
 
-| Code | Description | Severity | Retry Strategy | Operator Action |
-|------|-------------|----------|----------------|-----------------|
-| 1001 | 401 Unauthorized - API key invalid/expired | Critical | No retry | Verify API key, rotate if needed, check platform status |
-| 1002 | 403 Forbidden - Trading restricted | Critical | No retry | Contact platform support, review ToS compliance, check for account flags |
-| 1003 | 429 Rate Limit Exceeded | Warning | Exponential backoff (2s, 4s, 8s) | Review rate limit utilization, reduce polling frequency if sustained |
-| 1004 | 503 Service Unavailable | Warning | Exponential backoff (1s, 2s, 4s), max 3 retries | Monitor platform status, activate degradation protocol if >3 failures |
-| 1005 | Timeout (>10s) | Warning | Retry once immediately | Check network latency, platform status |
-| 1006 | WebSocket Disconnect | Warning | Auto-reconnect with backoff | Monitor connection stability, switch to polling if frequent disconnects |
-| 1007 | Unexpected API Response Schema | Critical | No retry, halt trading | Log full response, notify operator, wait for investigation |
+| Code | Description                                | Severity | Retry Strategy                                  | Operator Action                                                          |
+| ---- | ------------------------------------------ | -------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
+| 1001 | 401 Unauthorized - API key invalid/expired | Critical | No retry                                        | Verify API key, rotate if needed, check platform status                  |
+| 1002 | 403 Forbidden - Trading restricted         | Critical | No retry                                        | Contact platform support, review ToS compliance, check for account flags |
+| 1003 | 429 Rate Limit Exceeded                    | Warning  | Exponential backoff (2s, 4s, 8s)                | Review rate limit utilization, reduce polling frequency if sustained     |
+| 1004 | 503 Service Unavailable                    | Warning  | Exponential backoff (1s, 2s, 4s), max 3 retries | Monitor platform status, activate degradation protocol if >3 failures    |
+| 1005 | Timeout (>10s)                             | Warning  | Retry once immediately                          | Check network latency, platform status                                   |
+| 1006 | WebSocket Disconnect                       | Warning  | Auto-reconnect with backoff                     | Monitor connection stability, switch to polling if frequent disconnects  |
+| 1007 | Unexpected API Response Schema             | Critical | No retry, halt trading                          | Log full response, notify operator, wait for investigation               |
 
 **Execution Failures (2000-2999):**
 
-| Code | Description | Severity | Retry Strategy | Operator Action |
-|------|-------------|----------|----------------|-----------------|
-| 2001 | Insufficient Liquidity - Order size > available depth | Info | No retry | Log opportunity as missed, adjust min liquidity threshold if frequent |
-| 2002 | Price Moved - Expected price no longer available | Info | No retry | Log slippage, review edge threshold if frequent |
-| 2003 | Order Rejected - Platform declined order | Warning | Retry once with fresh price | Investigate rejection reason, check platform status |
-| 2004 | Second Leg Failed After First Filled | Critical | Execute single-leg protocol | Alert operator immediately with P&L scenarios, await decision |
-| 2005 | Gas Estimation Failed (Polymarket) | Warning | Retry with +50% buffer | Monitor gas prices, adjust buffer if sustained failures |
-| 2006 | Transaction Reverted (Polymarket on-chain settlement) | Warning | Retry once, check chain status | Review transaction details, check for contract issues. **Note:** Applies to on-chain settlement (Epic 5), not order placement (off-chain CLOB). |
+| Code | Description                                           | Severity | Retry Strategy                 | Operator Action                                                                                                                                 |
+| ---- | ----------------------------------------------------- | -------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2001 | Insufficient Liquidity - Order size > available depth | Info     | No retry                       | Log opportunity as missed, adjust min liquidity threshold if frequent                                                                           |
+| 2002 | Price Moved - Expected price no longer available      | Info     | No retry                       | Log slippage, review edge threshold if frequent                                                                                                 |
+| 2003 | Order Rejected - Platform declined order              | Warning  | Retry once with fresh price    | Investigate rejection reason, check platform status                                                                                             |
+| 2004 | Second Leg Failed After First Filled                  | Critical | Execute single-leg protocol    | Alert operator immediately with P&L scenarios, await decision                                                                                   |
+| 2005 | Gas Estimation Failed (Polymarket)                    | Warning  | Retry with +50% buffer         | Monitor gas prices, adjust buffer if sustained failures                                                                                         |
+| 2006 | Transaction Reverted (Polymarket on-chain settlement) | Warning  | Retry once, check chain status | Review transaction details, check for contract issues. **Note:** Applies to on-chain settlement (Epic 5), not order placement (off-chain CLOB). |
 
 **Risk Limit Breaches (3000-3999):**
 
-| Code | Description | Severity | Retry Strategy | Operator Action |
-|------|-------------|----------|----------------|-----------------|
-| 3001 | Daily Loss Limit Exceeded | Critical | Halt all trading | Review daily performance, investigate if loss due to errors vs. normal variance |
-| 3002 | Correlation Cluster Limit Breach | Warning | Skip opportunity, continue monitoring | Review correlation exposure, consider closing positions in cluster |
-| 3003 | Position Count Limit Reached | Info | Skip opportunity | Normal - wait for positions to exit |
-| 3004 | Position Size Exceeds Maximum | Warning | Reduce size, retry | Investigate if error in size calculation |
-| 3005 | Max Drawdown Approaching Threshold | Critical | Reduce position sizes by 50% | Immediate review of portfolio risk, consider halting trading |
+| Code | Description                        | Severity | Retry Strategy                        | Operator Action                                                                 |
+| ---- | ---------------------------------- | -------- | ------------------------------------- | ------------------------------------------------------------------------------- |
+| 3001 | Daily Loss Limit Exceeded          | Critical | Halt all trading                      | Review daily performance, investigate if loss due to errors vs. normal variance |
+| 3002 | Correlation Cluster Limit Breach   | Warning  | Skip opportunity, continue monitoring | Review correlation exposure, consider closing positions in cluster              |
+| 3003 | Position Count Limit Reached       | Info     | Skip opportunity                      | Normal - wait for positions to exit                                             |
+| 3004 | Position Size Exceeds Maximum      | Warning  | Reduce size, retry                    | Investigate if error in size calculation                                        |
+| 3005 | Max Drawdown Approaching Threshold | Critical | Reduce position sizes by 50%          | Immediate review of portfolio risk, consider halting trading                    |
 
 **System Health Issues (4000-4999):**
 
-| Code | Description | Severity | Retry Strategy | Operator Action |
-|------|-------------|----------|----------------|-----------------|
-| 4001 | State File Corruption Detected | Critical | Halt, attempt rollback | Restore from backup, investigate corruption cause |
-| 4002 | Data Staleness - No updates >60s | Critical | Activate degradation protocol | Check platform APIs, network connectivity |
-| 4003 | Memory Usage >90% | Warning | Continue, log alert | Investigate memory leak, restart if sustained |
-| 4004 | Disk Space <10% Free | Warning | Continue, cleanup old logs | Archive old logs to external storage |
-| 4005 | Startup Reconciliation Discrepancy | Critical | Halt, flag positions | Operator must manually verify positions before resuming |
+| Code | Description                        | Severity | Retry Strategy                | Operator Action                                         |
+| ---- | ---------------------------------- | -------- | ----------------------------- | ------------------------------------------------------- |
+| 4001 | State File Corruption Detected     | Critical | Halt, attempt rollback        | Restore from backup, investigate corruption cause       |
+| 4002 | Data Staleness - No updates >60s   | Critical | Activate degradation protocol | Check platform APIs, network connectivity               |
+| 4003 | Memory Usage >90%                  | Warning  | Continue, log alert           | Investigate memory leak, restart if sustained           |
+| 4004 | Disk Space <10% Free               | Warning  | Continue, cleanup old logs    | Archive old logs to external storage                    |
+| 4005 | Startup Reconciliation Discrepancy | Critical | Halt, flag positions          | Operator must manually verify positions before resuming |
 
 ### Alerting Channels & Fallback
 
 **Primary Alerting (MVP): Telegram**
+
 - **Coverage:** All alerts (info, warning, critical)
 - **Delivery SLA:** <2 seconds for critical alerts
 - **Format:** Rich text with action buttons for operator decisions (retry, close, acknowledge)
 - **Failure detection:** If Telegram API returns error 3 consecutive times, escalate to secondary channel
 
 **Secondary Alerting (Phase 1): Email**
+
 - **Coverage:** High-severity and critical alerts only (platform degradation, risk limit breach, system crash, single-leg exposure)
 - **Delivery SLA:** <30 seconds
 - **Format:** Plain text with full context (timestamps, affected contracts, P&L impact, recommended actions)
 - **Activation:** Automatic if Telegram fails OR for alerts requiring audit trail (compliance, regulatory)
 
 **Tertiary Alerting (Phase 1): SMS**
+
 - **Coverage:** Critical alerts only (daily loss limit exceeded, system crash, catastrophic failure)
 - **Delivery SLA:** <60 seconds
 - **Format:** Plain text, max 160 characters with alert code and critical summary
 - **Activation:** Automatic if both Telegram and Email fail OR for maximum-severity events
 
 **Alerting Health Monitoring:**
+
 - System sends test alert daily at configurable time (default: 8am local)
 - Test alert sent to all channels, operator confirms receipt
 - If test fails for any channel: Alert via remaining functional channels, log failure for investigation
@@ -1406,6 +1553,7 @@ Centralized error taxonomy covering all system failure modes with standardized c
 
 **Requirement Rationale:**
 Cross-platform arbitrage depends on accurate timestamp correlation for:
+
 - Audit trails proving near-simultaneous execution (regulatory compliance)
 - Opportunity detection timing (did price dislocation exist when detected?)
 - Performance analytics (actual execution latency vs. target)
@@ -1414,22 +1562,26 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 **Implementation:**
 
 **NTP Synchronization:**
+
 - System must sync with NTP pool servers (pool.ntp.org or equivalent) at startup and every 6 hours
 - Acceptable clock drift: <100ms from NTP reference
 - Alert threshold: Clock drift >100ms detected during sync check
 
 **Clock Drift Monitoring:**
+
 - Every 30 minutes, compare system clock to NTP reference
 - If drift >100ms: Log warning alert to operator
 - If drift >500ms: Critical alert, recommend investigation (system clock hardware issue, NTP server unreachable)
 - If drift >1000ms: Halt trading until clock drift resolved (timestamps unreliable for audit compliance)
 
 **Timestamp Precision:**
+
 - Audit trail timestamps: Millisecond precision (sufficient for demonstrating near-simultaneous execution)
 - Performance metrics: Millisecond precision (order book latency, execution speed)
 - Not required: Microsecond or nanosecond precision (overkill for this strategy, adds complexity)
 
 **Platform API Timestamp Handling:**
+
 - Platform-provided timestamps (order fill times) used as authoritative source for that platform
 - System timestamps used for internal event correlation (opportunity detected, order submitted)
 - Timestamp reconciliation: If platform fill timestamp differs from system submission timestamp by >10 seconds, flag for investigation (network latency issue, clock drift, or platform delay)
@@ -1439,6 +1591,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Technical Risks & Mitigations
 
 **Contract Matching Failures**
+
 - **Risk:** Trading opposite sides of contracts that aren't actually the same event, creating directional exposure instead of arbitrage
 - **Likelihood:** Low (with proper validation), **Impact:** Catastrophic (position loss on both legs)
 - **Mitigation:**
@@ -1450,6 +1603,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Zero catastrophic matching failures across all phases
 
 **Single-Leg Exposure Events**
+
 - **Risk:** One leg fills, other doesn't, creating unwanted directional position
 - **Likelihood:** Medium (platform latency, volatility), **Impact:** Medium (1-2% position loss typically)
 - **Mitigation:**
@@ -1461,6 +1615,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** <1 event per week, average loss <1% of position size
 
 **Platform API Outages & Degradation**
+
 - **Risk:** Loss of real-time data, inability to execute or monitor positions
 - **Likelihood:** Medium (platform infrastructure issues), **Impact:** High (trading halt, position risk)
 - **Mitigation:**
@@ -1472,6 +1627,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** 99%+ uptime during active market hours, graceful handling of platform outages
 
 **Slippage Exceeding Modeled Assumptions**
+
 - **Risk:** Actual execution costs exceed backtested projections, eroding edge
 - **Likelihood:** Medium (market microstructure changes), **Impact:** Medium (edge compression)
 - **Mitigation:**
@@ -1482,6 +1638,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Average realized slippage within 25% of modeled
 
 **API Version Compatibility Issues**
+
 - **Risk:** Platform API changes break integration, causing failed executions or data loss
 - **Likelihood:** Low-Medium (platforms evolve), **Impact:** High (trading halt until fixed)
 - **Mitigation:**
@@ -1494,6 +1651,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Market & Edge Degradation Risks
 
 **Edge Compressing Faster Than Expected**
+
 - **Risk:** Prediction market fragmentation resolves faster than 5-10 year thesis, institutional competition enters
 - **Likelihood:** Medium (market maturation), **Impact:** High (strategy becomes unprofitable)
 - **Mitigation:**
@@ -1508,6 +1666,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Contingency:** Timing thesis is explicitly being validated; if edge compresses in 2-3 years instead of 5-10, this is a successful learning outcome (system was profitable while it lasted)
 
 **Opportunity Frequency Declining**
+
 - **Risk:** Fewer actionable arbitrage opportunities, reducing revenue potential
 - **Likelihood:** Medium (competition, market efficiency), **Impact:** High (below minimum viable returns)
 - **Mitigation:**
@@ -1518,6 +1677,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Opportunity frequency remains above minimum threshold for target returns
 
 **Liquidity Deterioration**
+
 - **Risk:** Order book depth declines, reducing extractable edge per trade
 - **Likelihood:** Low-Medium (market evolution), **Impact:** Medium (smaller position sizes, lower returns)
 - **Mitigation:**
@@ -1530,6 +1690,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Regulatory & Compliance Risks
 
 **CFTC Regulatory Action**
+
 - **Risk:** Regulatory ruling restricts prediction market trading or creates compliance burden
 - **Likelihood:** Low-Medium (regulatory uncertainty), **Impact:** Potentially Catastrophic (strategy shutdown)
 - **Mitigation:**
@@ -1542,6 +1703,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** No trading activity challenged by regulators; proactive compliance positioning
 
 **Platform Adverse Actions**
+
 - **Risk:** Platform flags trading activity, restricts API access, changes terms unfavorably
 - **Likelihood:** Low (well-behaved trading), **Impact:** High (loss of platform access)
 - **Mitigation:**
@@ -1554,6 +1716,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Zero adverse platform actions, <70% API rate limit utilization
 
 **Cross-Border Compliance Issues**
+
 - **Risk:** Trading contracts restricted by entity domicile or jurisdictional limitations
 - **Likelihood:** Low (with proper configuration), **Impact:** Medium (contract category restrictions)
 - **Mitigation:**
@@ -1565,6 +1728,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Zero trades executed in violation of jurisdictional restrictions
 
 **Data Retention Compliance Failures**
+
 - **Risk:** Failure to maintain 7-year trade logs, creating audit liability
 - **Likelihood:** Very Low (automated enforcement), **Impact:** High (IRS/regulatory penalties)
 - **Mitigation:**
@@ -1578,6 +1742,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Operational & Platform Risks
 
 **Platform Counterparty Risk**
+
 - **Risk:** Platform experiences smart contract exploit, regulatory shutdown, or insolvency
 - **Likelihood:** Low (established platforms), **Impact:** High (capital loss on that platform)
 - **Mitigation:**
@@ -1589,6 +1754,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Maximum capital at risk bounded to 40% if single platform fails
 
 **Wallet Security & Key Management**
+
 - **Risk:** Private key compromise leading to capital loss
 - **Likelihood:** Very Low (with proper security), **Impact:** Catastrophic (total capital loss)
 - **Mitigation:**
@@ -1600,6 +1766,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** Zero unauthorized access to private keys or wallet funds
 
 **System Downtime & Operational Reliability**
+
 - **Risk:** System crashes or becomes unavailable, missing opportunities or creating position risk
 - **Likelihood:** Low (with proper engineering), **Impact:** Medium (missed opportunities, monitoring gaps)
 - **Mitigation:**
@@ -1611,6 +1778,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - **Success Metric:** 99%+ uptime sustained, <1 hour downtime per month
 
 **Resource Constraints (Team/Capital)**
+
 - **Risk:** Insufficient resources to complete development or operate at target scale
 - **Likelihood:** Low (single-user project, modest capital), **Impact:** Medium (delayed timeline, reduced scope)
 - **Mitigation:**
@@ -1627,21 +1795,25 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Performance
 
 **NFR-P1: Order Book Update Latency**
+
 - Order book data from all platforms processed and normalized within 500ms of platform event
 - Rationale: Arbitrage opportunities can disappear in seconds. Stale data leads to failed executions and single-leg exposure.
 - Measurement: 95th percentile latency from platform websocket event to internal normalized representation
 
 **NFR-P2: Arbitrage Detection Cycle Time**
+
 - Complete arbitrage detection cycle (all matched contract pairs evaluated) completes within 1 second
 - Rationale: Detection delays reduce available execution time, increasing leg risk
 - Measurement: Time from order book update to opportunity flag in logs
 
 **NFR-P3: Execution Submission Speed**
+
 - Both legs of arbitrage submitted to platforms within same event loop cycle (target: <100ms between submissions)
 - Rationale: Leg risk increases with time delta between order submissions. Core execution assumption.
 - Measurement: Timestamp delta between first and second order submission in execution logs
 
 **NFR-P4: Dashboard Responsiveness**
+
 - Dashboard UI updates within 2 seconds of data change for all monitoring views
 - Rationale: Operator needs real-time visibility during manual interventions
 - Measurement: Time from backend state change to frontend render
@@ -1649,17 +1821,20 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Security
 
 **NFR-S1: Credential Storage**
+
 - **MVP**: Platform API keys and wallet private keys stored in environment variables, never in code or version control
 - **Phase 1**: Migration to secrets management service supporting API-based credential retrieval, automatic key rotation, and encrypted storage
 - Rationale: Compromise of credentials = loss of all deployed capital. Secrets manager provides rotation, audit trails, and access control.
 - Measurement: Zero credential exposure events (credentials found in logs, repos, or unencrypted storage)
 
 **NFR-S2: API Key Rotation Support**
+
 - System supports zero-downtime API key rotation for all platforms
 - Rationale: Regulatory or security incident may require immediate key rotation. System must continue operating.
 - Measurement: Successful rotation with <5 seconds of degraded operation during switchover
 
 **NFR-S3: Transaction Logging**
+
 - All trade executions, order submissions, and wallet transactions logged with complete audit trail
 - Logs include: timestamp, arbitrage opportunity rationale, execution prices, order IDs, transaction hashes
 - Retention: 7 years (IRS compliance requirement)
@@ -1667,6 +1842,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: 100% of trades have complete audit records
 
 **NFR-S4: Access Control**
+
 - Dashboard and API endpoints require authentication (MVP: basic auth or API token; Phase 1: proper session management)
 - No unauthenticated access to system state, logs, or controls
 - Rationale: Prevent unauthorized trading operations or exposure of strategy details
@@ -1675,12 +1851,14 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Reliability
 
 **NFR-R1: System Uptime**
+
 - 99% uptime during active market hours (Mon-Fri 9am-5pm ET), 95% overall including planned maintenance windows
 - Planned maintenance windows announced 24 hours in advance, scheduled outside active market hours
 - Rationale: Downtime during active hours = missed opportunities and inability to manage open positions; maintenance windows acceptable during low-activity periods
 - Measurement: Uptime percentage calculated from system health check logs, tracked separately for active hours and overall
 
 **NFR-R2: Graceful Degradation**
+
 - When data feed from one platform fails:
   - Cancel all pending orders on that platform within 10 seconds
   - Continue operating on remaining healthy platforms
@@ -1691,6 +1869,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: Zero instances of trading without current data, 100% of degradation events properly logged and alerted
 
 **NFR-R3: Single-Leg Exposure Handling**
+
 - Execution timeout: 5 seconds (configurable) from first leg submission to second leg confirmation
 - If timeout exceeded: Immediate attempt to unwind filled leg OR hedge exposure using model-driven exit framework
 - Target: <5 events per month (success threshold), <2 events per month (compliance measurement standard)
@@ -1699,6 +1878,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: Count and severity of single-leg events in monthly performance reports, tracked weekly for alert threshold
 
 **NFR-R4: Platform Health Detection**
+
 - Platform health status (healthy/degraded/offline) updated every 30 seconds
 - Health determined by: API response time, order book update frequency, execution success rate
 - Degradation detection triggers alert within 60 seconds
@@ -1706,6 +1886,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: Zero undetected API degradation events >5 minutes
 
 **NFR-R5: Data Persistence**
+
 - All order book snapshots, executions, and model decisions logged with microsecond timestamps
 - Storage: Time-series database suitable for historical replay
 - Retention: 7 years minimum (regulatory requirement)
@@ -1715,6 +1896,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 ### Integration
 
 **NFR-I1: Platform API Compatibility**
+
 - Support specific API versions for each platform (version pinned in configuration)
 - Defensive parsing: Handle unexpected API responses without crashing
 - Version upgrade path: Test against new API versions in isolated environment before production deployment
@@ -1722,6 +1904,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: Zero production incidents caused by unexpected API responses
 
 **NFR-I2: Rate Limit Compliance**
+
 - Automatic enforcement of platform-specific rate limits with 20% safety buffer
 - Rate limit tracking: Monitor consumption in real-time, alert at 70% utilization
 - Graceful handling: Queue requests when approaching limits, never exceed and trigger platform throttling
@@ -1729,6 +1912,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: Zero rate limit violations, zero API suspensions due to excessive requests
 
 **NFR-I3: Connection Resilience**
+
 - Websocket connections automatically reconnect with exponential backoff (max 60 seconds between attempts)
 - Missed data detection: System recognizes gaps in order book updates and marks platform as degraded
 - Connection state clearly indicated in dashboard and logs
@@ -1736,6 +1920,7 @@ Cross-platform arbitrage depends on accurate timestamp correlation for:
 - Measurement: 95% of connection failures recover automatically within 2 minutes
 
 **NFR-I4: Transaction Confirmation Handling**
+
 - **MVP Scope:** Polymarket order execution is off-chain (CLOB REST API via SDK) with synchronous confirmation — same pattern as Kalshi. NFR-I4 on-chain concerns do not apply to MVP order placement.
 - **Epic 5 Scope (On-Chain Settlement):** Monitor on-chain transactions (deposits, withdrawals, settlement) for confirmation with timeout (default 30 seconds). Handle chain reorganizations. Gas estimation with 20% buffer.
 - Rationale: On-chain execution has unique failure modes (gas estimation, confirmation delays, reorgs) but these only apply to settlement operations, not order placement

@@ -11,7 +11,7 @@
 
 **Primary Entry Point:** `pm-arbitrage-engine/src/main.ts`
 
-**Key Capabilities (implemented as of Sprint 5):**
+**Key Capabilities (implemented as of Epic 7.1):**
 - Real-time WebSocket order book ingestion from Kalshi + Polymarket
 - Platform health monitoring with degradation protocol
 - Cross-platform arbitrage dislocation detection
@@ -22,5 +22,12 @@
 - Startup reconciliation with platform state verification
 - Operator risk override API with audit trail
 - Contract pair management via YAML config + DB sync
+- Monitoring: Telegram alerts, CSV trade logs, compliance checks, trade/tax exports
+- Paper trading infrastructure (simulated execution, mode isolation)
+- **Operator Dashboard** (React 19 + Vite + TanStack Query + shadcn/ui):
+  - System health view (composite health, per-platform status, P&L, execution quality)
+  - WebSocket gateway for real-time push updates
+  - Typed API client generated from OpenAPI spec (swagger-typescript-api)
+  - Docker Compose integration (nginx serving SPA with API/WS proxy)
 
-**Codebase Size:** ~102 source files, ~49 test spec files
+**Codebase Size:** ~120+ source files, ~55+ test spec files (1170 tests), plus pm-arbitrage-dashboard SPA

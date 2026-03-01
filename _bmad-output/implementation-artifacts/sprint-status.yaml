@@ -106,22 +106,33 @@ development_status:
   epic-6-retrospective: done
 
   # EPIC 6.5: Paper Trading Validation (HARD GATE before Epic 7)
-  epic-6-5: backlog
-  6-5-0-codebase-readiness-tech-debt-clearance: backlog
-  6-5-1-event-pair-selection-contract-configuration: backlog
-  6-5-2-deployment-runbook-vps-provisioning: backlog
-  6-5-3-validation-framework-go-no-go-criteria: backlog
-  6-5-4-read-only-detection-validation: backlog
+  epic-6-5: in-progress
+  6-5-0-codebase-readiness-tech-debt-clearance: done
+  6-5-0a-code-review-tech-debt-fixes: done
+  6-5-1-event-pair-selection-contract-configuration: done
+  6-5-2-deployment-runbook-vps-provisioning: done
+  6-5-2a-polymarket-batch-orderbook-migration: done
+  6-5-3-validation-framework-go-no-go-criteria: done
+  6-5-4-websocket-stability-structured-log-payloads: done
+  6-5-5a-polymarket-orderbook-sort-fix: done
+  6-5-5b-depth-aware-position-sizing: done
+  6-5-5c-paper-mode-duplicate-opportunity-prevention: done
+  6-5-5d-telegram-batching-paper-dedup: done
+  6-5-5e-paper-mode-exit-monitor-fix: done
+  6-5-5f-detection-gross-edge-formula-fix: done
+  6-5-5g-kalshi-dynamic-fee-correction: done
+  6-5-5h-execution-equal-leg-sizing: done
+  6-5-5i-exit-threshold-calibration-fix: done
   6-5-5-paper-execution-validation: backlog
   6-5-6-validation-report-epic-7-readiness: backlog
   epic-6-5-retrospective: optional
 
   # EPIC 7: Operator Dashboard & Advanced Monitoring (Phase 1)
-  epic-7: backlog
-  7-1-dashboard-project-setup-system-health-view: backlog
-  7-2-open-positions-p-and-l-detail-view: backlog
-  7-3-contract-matching-approval-interface: backlog
-  7-4-weekly-performance-metrics-trends: backlog
+  epic-7: in-progress
+  7-1-dashboard-project-setup-system-health-view: done
+  7-2-open-positions-p-and-l-detail-view: done
+  7-3-contract-matching-approval-interface: done
+  7-4-weekly-performance-metrics-trends: done
   epic-7-retrospective: optional
 
   # EPIC 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
@@ -163,9 +174,9 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 15 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation)
-# Total Stories: 64 (39 done + 7 Epic 6.5 + 18 Epics 7-12)
-# Total Items (Epics + Stories + Retrospectives): 83
+# Total Stories: 65 (39 done + 8 Epic 6.5 + 18 Epics 7-12)
+# Total Items (Epics + Stories + Retrospectives): 84
 # Epics done: 8 (Epics 1-6, 4.5, 5.5)
-# Stories done: 39 (Epics 1-6 stories + Sprint 0 + Epic 4.5 stories + Epic 5.5 stories)
+# Stories done: 40 (Epics 1-6 stories + Sprint 0 + Epic 4.5 stories + Epic 5.5 stories + 6-5-5b)
 # Retrospectives done: 8 (Epics 1-6, 4.5, 5.5)
 # MVP STATUS: COMPLETE — Epic 6.5 (Paper Trading Validation) gates Epic 7

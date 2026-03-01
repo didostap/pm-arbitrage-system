@@ -620,8 +620,10 @@ modules/arbitrage-detection/ (identify opportunities, calculate edge)
     ↓ (synchronous DI call)
 modules/risk-management/ (validate position, check limits, reserve budget)
     ↓ (synchronous DI call)
-modules/execution/ (submit orders, manage legs, lock execution)
-    ↓
+modules/execution/ (depth-aware sizing → edge re-validation → submit orders, manage legs)
+    ↓                  ↑ primary leg submitted before secondary depth known (MVP constraint)
+    ↓                  ↑ each leg independently capped to available depth (min 25% of ideal)
+    ↓                  ↑ edge re-validated with actual gas fraction after sizing (FR-EX-03a)
 modules/exit-management/ (monitor positions, evaluate thresholds, trigger exits)
     ↓ (EventEmitter2 fan-out from all modules)
 modules/monitoring/ (audit logs, Telegram alerts, dashboard events, compliance reports)
@@ -630,6 +632,32 @@ dashboard/ (REST API + WebSocket gateway → React SPA)
     ↓
 persistence/ (PostgreSQL via Prisma — positions, audit trail, knowledge base, snapshots)
 ```
+
+### Execution Position Sizing Model
+
+**Depth-Aware Sizing (FR-EX-03, Story 6.5.5b):**
+
+The execution module adapts position sizes to actual order book depth rather than rejecting trades when liquidity is insufficient for the full target:
+
+```
+idealSize = reservedCapitalUsd / targetPrice     (primary leg)
+secondaryIdealSize = reservedCapitalUsd / secondaryTargetPrice  (secondary leg — independent calculation)
+
+Each leg: cappedSize = min(idealSize, availableDepthAtAcceptablePrice)
+Minimum:  cappedSize >= ceil(idealSize × minFillRatio)  (default 25%, configurable)
+```
+
+After sizing, the gas fraction is recalculated over the actual (reduced) position size. If the recalculated net edge falls below the minimum threshold (0.8%), the trade is rejected (FR-EX-03a).
+
+**Known MVP Limitation — Mismatched Contract Counts:**
+
+Each leg computes its ideal size independently from `reservedCapitalUsd / legPrice`. Because buy and sell prices differ, primary and secondary legs have different contract counts. Additionally, depth capping may further diverge them. The position records actual per-leg sizes. This creates asymmetric payoff profiles rather than perfectly hedged positions.
+
+True matched-count execution requires pre-flight depth verification on BOTH legs before submitting either order, using a unified sizing formula: `idealCount = reservedCapitalUsd / (buyPrice + sellPrice)`. This architectural change is deferred to Phase 1 (FR-EX-08, Epic 10, Story 10.4).
+
+**Sequential Leg Submission Constraint:**
+
+The MVP execution flow submits the primary leg before checking secondary depth (FR-EX-02). If secondary depth is insufficient after primary fills, this triggers single-leg exposure handling (FR-EX-04/05). The edge re-validation (FR-EX-03a) catches cases where reduced sizing makes the trade unprofitable, also triggering single-leg handling since primary is already submitted.
 
 ### Requirements to Structure Mapping
 

@@ -1161,7 +1161,7 @@ Operator receives real-time Telegram alerts, has CSV trade logs for daily review
 ### Epic 6.5: Paper Trading Validation
 7-day structured validation of the complete system against live markets in paper mode. Hard gate — Epic 7 does not start until Epic 6.5 clears. Follows the precedent of Epic 4.5 and Epic 5.5 as a validation sprint inserted between main epics.
 **FRs covered:** None (validation and operational readiness)
-**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 48h read-only detection, 5-day paper execution, validation report
+**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 5-day paper execution, validation report
 
 ## Epic 6: Monitoring, Alerting & Compliance Logging
 
@@ -1323,13 +1323,13 @@ So that my legal counsel and tax advisor have exactly what they need without man
 ### Epic 6.5: Paper Trading Validation
 7-day structured validation of the complete system against live markets in paper mode. Hard gate — Epic 7 does not start until Epic 6.5 clears. Follows the precedent of Epic 4.5 and Epic 5.5 as a validation sprint inserted between main epics.
 **FRs covered:** None (validation and operational readiness)
-**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 48h read-only detection, 5-day paper execution, validation report
+**Additional:** Codebase audit, event pair selection, VPS deployment, metrics framework, 5-day paper execution, validation report
 
 ## Epic 6.5: Paper Trading Validation
 
-7-day structured validation of the complete system against live markets in paper mode. Phases: codebase readiness → infrastructure provisioning → measurement framework → read-only detection (48h) → paper execution (5 days) → validation report. Hard gate: Epic 7 does not start until Epic 6.5 clears.
+7-day structured validation of the complete system against live markets in paper mode. Phases: codebase readiness → infrastructure provisioning → measurement framework → paper execution (5 days) → validation report. Hard gate: Epic 7 does not start until Epic 6.5 clears.
 
-**Sequencing:** 6.5.0 → [6.5.1 + 6.5.2 + 6.5.3 in parallel] → 6.5.4 → 6.5.5 → 6.5.6
+**Sequencing:** 6.5.0 → 6.5.0a → [6.5.1 + 6.5.2 in parallel] → 6.5.2a → 6.5.3 → 6.5.4 → 6.5.5 → 6.5.6
 
 ### Story 6.5.0: Codebase Readiness & Tech Debt Clearance
 
@@ -1389,6 +1389,44 @@ So that paper trading validation starts from a known-good baseline with no pre-e
 - All existing 1,078+ tests pass, `pnpm lint` reports zero errors
 - Any new tests added for decimal violations follow co-located pattern
 
+### Story 6.5.0a: Code Review Tech Debt Fixes
+
+As an operator,
+I want the pre-existing tech debt items surfaced by the Story 6.5.0 code review to be resolved before paper trading validation begins,
+So that the validation run produces trustworthy results on a codebase with no known observability gaps or architecture violations.
+
+**Acceptance Criteria:**
+
+**Given** the `verifyDepth()` method in `execution.service.ts` has a catch block that silently returns `false`
+**When** an API failure, rate limit, or transient error occurs during depth verification
+**Then** a structured warning log is emitted with the error context (platform, market, error type)
+**And** a `execution.depth-check.failed` event is emitted for monitoring consumption
+**And** the method still returns `false` (fail-closed behavior preserved)
+
+**Given** the `handlePriceChange()` method in `polymarket-websocket.client.ts` may not update order book price levels
+**When** the method's behavior is investigated against Polymarket's WebSocket message types
+**Then** either: (a) confirmed dead code path — documented with rationale and no fix needed, **or** (b) confirmed bug — price levels are updated from `price_change` messages and covered by tests
+**And** investigation findings are documented in `gotchas.md`
+
+**Given** `kalshi.connector.ts` has `getPositions()` throwing raw `new Error('getPositions not implemented')`
+**When** this placeholder is reviewed
+**Then** it is replaced with `throw new PlatformApiError(...)` using the SystemError hierarchy with appropriate error code
+**And** the method signature and JSDoc remain unchanged
+
+**Given** the `polymarket-websocket.client.ts` staleness check detects data older than 30 seconds
+**When** stale data is detected and the emit is skipped
+**Then** a `platform.health.data-stale` event is emitted with platform identifier and staleness duration
+**And** the event is consumable by the monitoring hub for Telegram alerting
+
+**Sequencing:** After 6.5.0, before 6.5.1. Can run in parallel with 6.5.1/6.5.2/6.5.3 if preferred.
+
+**DoD Gates:**
+- All existing tests pass, `pnpm lint` reports zero errors
+- New event emissions have co-located unit tests
+- No new `decimal.js` violations introduced
+
+**Origin:** Code review findings #4, #5, #8, #10 from `6-5-0-code-review-findings.md`
+
 ### Story 6.5.1: Event Pair Selection & Contract Configuration
 
 As an operator,
@@ -1425,7 +1463,7 @@ So that the detection engine has real market pairs to monitor during validation 
 **Then** at least 5 pairs have resolution dates >30 days out (ensuring they remain active through the full 7-day validation window)
 **And** at least 3 pairs are in historically active categories with regular order book updates
 
-**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.2 and 6.5.3. Must complete before 6.5.4.
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.2 and 6.5.3. Must complete before 6.5.5.
 
 **Previous Story Intelligence:**
 - `contract-pairs.yaml` format defined in Story 3.1 (Manual Contract Pair Configuration)
@@ -1484,13 +1522,69 @@ So that paper trading validation runs against live markets on persistent infrast
 **And** the engine runs stable for at least 10 minutes with no errors in `pm2 logs`
 **And** the health endpoint responds correctly via SSH tunnel
 
-**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.3. Must complete before 6.5.4.
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.3. Must complete before 6.5.5.
 
 **Previous Story Intelligence:**
 - Architecture doc specifies Hetzner VPS with SSH tunnel access (no public ports beyond SSH)
 - Backup strategy from architecture: hourly pg_dump, 7-day rolling window
 - Telegram daily test alert implemented in Story 6.1 via `@Cron` — confirms connectivity without manual testing
 - Paper trading connector from Epic 5.5 decorates real connectors — platform API connections are real, only execution is simulated
+
+### Story 6.5.2a: Polymarket Batch Order Book Migration & Health Log Optimization
+
+As an operator,
+I want Polymarket order books fetched via a single batch API call instead of sequential per-pair requests,
+So that rate limit consumption drops from O(n) to O(1), ingestion latency improves ~6x, and all order books share a consistent timestamp for accurate arbitrage detection.
+
+**Acceptance Criteria:**
+
+**Given** the Polymarket connector has multiple configured token IDs
+**When** `DataIngestionService.ingestCurrentOrderBooks()` runs a polling cycle
+**Then** all Polymarket order books are fetched via a single `clobClient.getOrderBooks(params: BookParams[])` call
+**And** only 1 rate limit read token is consumed per cycle (regardless of pair count)
+**And** each returned `OrderBookSummary` is normalized via `normalizePolymarket()` into `NormalizedOrderBook`
+**And** all normalized books are persisted and events emitted as before
+
+**Given** the batch `getOrderBooks()` call returns results
+**When** some token IDs return empty or missing order books
+**Then** the missing tokens are logged at warning level with their token IDs
+**And** successfully returned order books are still processed normally
+**And** no error is thrown for partial results
+
+**Given** the batch `getOrderBooks()` call fails entirely (network error, rate limit, 5xx)
+**When** the error is caught
+**Then** a `PlatformApiError` is thrown with appropriate error code and retry strategy
+**And** the error is handled identically to the current single-call error path
+
+**Given** `PlatformHealthService.publishHealth()` runs on its 30-second cron
+**When** a platform's health status has NOT changed since the last tick
+**Then** no `platform_health_logs` row is written to the database
+**And** the in-memory status and event emission continue as before
+
+**Given** `PlatformHealthService.publishHealth()` runs on its 30-second cron
+**When** a platform's health status HAS changed (e.g., `healthy → degraded`)
+**Then** a `platform_health_logs` row IS written with the new status
+**And** the appropriate domain event is emitted as before
+
+**Given** the Polymarket connector exposes `getOrderBooks(contractIds: string[])`
+**When** inspecting the `IPlatformConnector` interface
+**Then** the interface is unchanged — `getOrderBooks()` is a Polymarket-specific method, not on the shared interface
+**And** `DataIngestionService` calls it via a typed reference to `PolymarketConnector`
+
+**Technical Notes:**
+- `@polymarket/clob-client` SDK method: `getOrderBooks(params: BookParams[]): Promise<OrderBookSummary[]>` — supports up to 500 tokens per request
+- Rate limiter: `acquireRead()` once per batch, not per token
+- Health log guard: reuse existing `previousStatus` map in `PlatformHealthService` for the persistence condition
+- Existing single `getOrderBook()` method remains for any future single-fetch needs (e.g., retry of individual token)
+
+**Sequencing:** Requires 6.5.0 and 6.5.2 complete. Must complete before 6.5.3. This ensures all subsequent validation stories run against the production-grade batch pipeline.
+
+**Previous Story Intelligence:**
+- Migration analysis doc: `docs/polymarket-batch-orderbook-migration.md` — contains full problem analysis, SDK confirmation, and performance comparison
+- Sprint Change Proposal: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-02-28.md`
+- Source files: `src/connectors/polymarket/polymarket.connector.ts` (lines 211-274), `src/modules/data-ingestion/data-ingestion.service.ts` (lines 125-259), `src/modules/data-ingestion/platform-health.service.ts` (lines 41-144)
+- Rate limiter: `src/common/utils/rate-limiter.ts` — no changes needed
+- Current utilization: 91.8% with 8 pairs (8 tokens/cycle); target: ~12.5% (1 token/cycle)
 
 ### Story 6.5.3: Validation Framework & Go/No-Go Criteria
 
@@ -1543,7 +1637,7 @@ So that validation phases produce structured, evaluable data rather than anecdot
 **Then** the complete validation framework (metrics templates, observation log format, go/no-go criteria for both gates) is reviewed and approved by Arbi
 **And** approval is recorded with date
 
-**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.2. Must complete before 6.5.4.
+**Sequencing:** Requires 6.5.0 complete. Can run in parallel with 6.5.1 and 6.5.2. Must complete before 6.5.5.
 
 **Previous Story Intelligence:**
 - PRD MVP Success Gate section defines quantitative targets — use as source of truth for thresholds
@@ -1552,62 +1646,117 @@ So that validation phases produce structured, evaluable data rather than anecdot
 - Story 6.3 CSV trade log has 5 N/A columns due to event payload gaps — document these as known gaps, not validation failures
 - Story 6.5 audit trail `verifyChain()` already exists — just needs to be run against real data
 
-### Story 6.5.4: Read-Only Detection Validation (48h)
+### Story 6.5.4: WebSocket Stability & Structured Log Payloads
 
 As an operator,
-I want to run the detection engine against live markets with execution disabled for 48 hours,
-So that I can verify opportunity detection works against real order books before risking paper execution.
+I want the Polymarket WebSocket connection to stay alive during idle periods, health status to not flap on transient reconnects, and all event log entries to show real structured values instead of `[object]`,
+So that paper trading validation runs against a stable, observable system where health reflects real connectivity problems and logs are usable for diagnosis.
 
 **Acceptance Criteria:**
 
-**Given** Stories 6.5.0 (baseline), 6.5.1 (pairs configured), 6.5.2 (VPS deployed), and 6.5.3 (metrics framework defined) are complete
-**When** the detection engine is started on the VPS with execution disabled
-**Then** the engine connects to both Kalshi and Polymarket APIs successfully
-**And** order book ingestion begins for all configured contract pairs
-**And** the detection cycle runs continuously per the configured polling interval
-**And** execution is confirmed disabled (no paper orders submitted, verified via logs and empty orders table)
+**Given** the Polymarket WebSocket client is connected
+**When** no market data arrives for an extended idle period
+**Then** the client sends periodic ping frames (every 30s) to keep the connection alive
+**And** the server does not close the connection with code 1006 due to inactivity
 
-**Given** the engine is running in read-only detection mode
-**When** 48 hours of continuous operation have elapsed
-**Then** metrics are collected per the Phase 1 template from Story 6.5.3
-**And** daily observation log entries are recorded for each 24h period
-**And** raw detection events are preserved in logs for post-hoc analysis
+**Given** the WebSocket connection drops and reconnects within one health check cycle (30s)
+**When** the platform health service evaluates health on the next tick
+**Then** the platform is NOT marked as degraded (transient reconnect is tolerated)
+**And** the degradation protocol is NOT activated
 
-**Given** detection latency is a critical performance metric
-**When** per-cycle latency is measured across the 48h window
-**Then** p95 detection latency is <500ms (NFR-P3)
-**And** latency distribution is recorded (p50, p95, p99, max) with any outliers investigated
+**Given** the WebSocket connection has been down for 2+ consecutive health check ticks (~60s of confirmed timeout)
+**When** the platform health service evaluates health
+**Then** the degradation protocol IS activated with reason `websocket_timeout`
+**And** degradation is only cleared after 2+ consecutive healthy observations
 
-**Given** opportunity frequency determines whether the arbitrage thesis holds
-**When** opportunities are tallied across the 48h window
-**Then** opportunity count, edge distribution (min/median/max), and per-pair breakdown are recorded
-**And** if zero opportunities are detected in 48h: investigation is performed (threshold too high? pairs too correlated? order books too thin?) with findings documented before proceeding
+**Given** any domain event is emitted with Date, array, or nested object fields
+**When** `EventConsumerService.summarizeEvent()` processes the event for logging
+**Then** Date values appear as ISO 8601 strings (e.g. `2026-03-01T12:00:00.000Z`)
+**And** arrays appear as actual arrays (e.g. `["polymarket"]`)
+**And** nested plain objects appear as serialized objects (e.g. `{"pollingCycleCount": 3, "reason": "websocket_timeout"}`)
+**And** no field in the log output contains the literal string `[object]`
 
-**Given** platform connectivity must be reliable for sustained operation
-**When** platform health is monitored across the 48h window
-**Then** both platforms maintain >95% uptime (per health status events)
-**And** any degradation or disconnection events are logged with recovery time
-**And** Telegram alerts fire for platform health events (confirming Story 6.1/6.2 integration on live infrastructure)
-
-**Given** the engine must survive expected operational disruptions
-**When** the 48h window includes at least one intentional graceful restart (via pm2)
-**Then** the engine shuts down cleanly, restarts, reconnects to both platforms, and resumes detection
-**And** no data corruption or state inconsistency is observed post-restart
-
-**Given** the Phase 1 → Phase 2 gate requires explicit evaluation
-**When** the 48h observation period completes
-**Then** go/no-go criteria from Story 6.5.3 are evaluated with pass/fail for each criterion
-**And** a brief Phase 1 summary is written: metrics against thresholds, key observations, anomalies, and proceed/investigate/abort recommendation
-**And** Arbi reviews and approves proceeding to Phase 2 (or approves the investigation/adjustment plan if criteria partially failed)
-
-**Sequencing:** Requires 6.5.0, 6.5.1, 6.5.2, and 6.5.3 all complete. Gates 6.5.5.
+**Sequencing:** Requires 6.5.3 complete. Must complete before 6.5.5.
 
 **Previous Story Intelligence:**
-- Detection cycle orchestrated by `TradingEngineService.executeCycle()` — disable execution by not starting the execution module or via configuration flag
-- Pipeline latency instrumentation added in Story 4.5.2 — latency metrics already logged per stage
-- Platform health published every 30s (FR-DI-04) — use these events for uptime calculation
-- Graceful shutdown implemented in Story 1.2 — pm2 sends SIGTERM, engine handles cleanup
-- Reconciliation from Story 5.5 runs on startup — the intentional restart also validates crash recovery path
+- Story 2.4 implemented `DegradationProtocolService` with activate/deactivate lifecycle and `DegradationProtocolActivatedEvent`/`DegradationProtocolDeactivatedEvent` events — both event classes use Date instances and arrays that currently serialize as `[object]`
+- Story 2.2 implemented `PolymarketWebSocketClient` with exponential backoff reconnect (`RETRY_STRATEGIES.WEBSOCKET_RECONNECT`: 1s initial, 60s max, 2x multiplier) — reconnect logic is sound, just missing keepalive ping
+- Story 1.4 implemented `PlatformHealthService` with 30s cron tick, 60s staleness threshold, 81s WebSocket timeout threshold — single-observation triggers cause flapping
+- Story 6.2 implemented `EventConsumerService.summarizeEvent()` with the `[object]` fallback at line 311 — the `str()` helper only handles primitives, not the summarize path
+- `RETRY_STRATEGIES.WEBSOCKET_RECONNECT` in `common/errors/platform-api-error.ts` — `maxRetries: Infinity` confirms reconnect is meant to be permanent
+
+### Story 6.5.5k: Exit Path Depth Verification & Partial Fill Handling
+
+As an operator,
+I want exit orders to be depth-verified and partial fills handled correctly,
+So that the system never orphans untracked contracts, never corrupts risk state with incorrect P&L, and exits are sized to what the order book can actually fill.
+
+**Acceptance Criteria:**
+
+**Given** an exit order returns `status: 'partial'` (e.g., 300 of 400 contracts filled)
+**When** realized P&L is calculated
+**Then** P&L uses the actual exit fill sizes (`filledQuantity`) from both legs, not the entry fill sizes
+**And** exit fees are calculated on the actual traded notional (exit fill size x exit fill price)
+**And** capital returned to the risk manager reflects only the exited portion
+
+**Given** an exit order returns `status: 'partial'` on either leg
+**When** the exit completes with unfilled contracts remaining
+**Then** the position transitions to `EXIT_PARTIAL` (not `CLOSED`)
+**And** a `SingleLegExposureEvent` is emitted with remainder details and operator action recommendations
+**And** capital remains reserved in the risk budget until the operator fully resolves the position
+**And** the exit monitor's next polling cycle does NOT re-evaluate this position (confirmed: queries only `OPEN` status)
+
+**Given** an exit threshold is triggered and `executeExit()` is called
+**When** exit orders are about to be submitted
+**Then** fresh order books are fetched for both legs (intentional second fetch — book may have changed since evaluation)
+**And** available depth is calculated at the close price or better on each side
+**And** if either side has zero depth, the exit is deferred to the next cycle (position stays `OPEN`)
+**And** exit sizes are capped to available depth and equalized across both legs: `exitSize = min(primaryDepth, secondaryDepth, entryFillSize)`
+
+**Given** the threshold evaluator is computing close prices for a position
+**When** `getClosePrice()` is called with a position size
+**Then** the returned price is a VWAP (volume-weighted average price) across order book levels needed to fill the position size
+**And** if the book cannot fill the full position, the VWAP covers available depth (pessimistic signal)
+**And** if `getClosePrice()` is called without a position size, it returns top-of-book price (backward compatible)
+
+**Given** the architecture document describes the exit-management hot path
+**When** this story is complete
+**Then** the hot path diagram is updated to note depth-verified exit sizing and partial fill handling
+
+**Implementation Order:**
+1. Fix P&L to use exit fill sizes (P0 — prerequisite for everything else)
+2. Partial fills transition to EXIT_PARTIAL (P0 — depends on correct P&L)
+3. Pre-exit depth check + deferral (P1 — builds on partial fill handling)
+4. VWAP-aware close pricing (P1 — independent but logically follows)
+5. Architecture doc update (P2 — last)
+
+**Design Decisions:**
+- No partial capital release until operator fully resolves — conservative, prevents risk budget drift
+- No auto-retry of unfilled remainder — operator decides via existing retry-leg/close-leg endpoints (Story 5.3)
+- No minimum fill ratio for exits (unlike entry's 25%) — at exit time, any reduction in exposure is beneficial
+- No edge re-validation at exit — exit decision already made; depth check is about execution feasibility
+- Cross-leg equalization prevents creating directional exposure from asymmetric partial fills
+- Double order book fetch in executeExit() is intentional freshness — must be commented in code
+
+**Sequencing:** After 6-5-5j (take-profit negative threshold fix), before 6-5-5 (paper execution validation).
+
+**Previous Story Intelligence:**
+- Story 5.4 specified that partial exits transition to `exit_partial` with `SingleLegExposureEvent` — this story implements that specified-but-missing behavior
+- Story 6.5.5b implemented depth-aware sizing for entry (`getAvailableDepth()`) — same pattern adapted for exit
+- Story 6.5.5h implemented cross-leg equalization for entry — same principle applied to exit sizing
+- `EXIT_PARTIAL` already exists in `PositionStatus` enum — no schema change needed
+- Exit monitor queries only `OPEN` positions — `EXIT_PARTIAL` positions are not re-evaluated (no double-exit risk)
+- Kalshi connector returns `status: 'partial'` when `order.remaining_count > 0` — this is a reachable production scenario
+- FR-EX-03 mandates depth verification "before placing any order" — applies universally, not just entry
+- FR-EM-03 (Phase 1) lists "liquidity deterioration" as exit criterion #5 — VWAP infrastructure is directly reusable for Epic 10 Story 10.2
+
+**Sprint Change Proposal:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-06-exit-depth-partial-fill.md`
+
+**DoD Gates:**
+- All existing tests pass (`pnpm test`), `pnpm lint` reports zero errors
+- New test cases cover: partial fill P&L, EXIT_PARTIAL transition, depth deferral, VWAP calculation, cross-leg equalization
+- No `decimal.js` violations introduced
+- Architecture doc updated
 
 ### Story 6.5.5: Paper Execution Validation (5 days)
 
@@ -1617,7 +1766,7 @@ So that I can validate the complete position lifecycle, monitoring stack, and sy
 
 **Acceptance Criteria:**
 
-**Given** Story 6.5.4 Phase 1 gate has been passed and Arbi has approved proceeding
+**Given** Stories 6.5.0, 6.5.1, 6.5.2, 6.5.2a, 6.5.3, and 6.5.4 are complete
 **When** paper execution is enabled on the VPS
 **Then** the engine runs the full pipeline: detection → risk validation → paper execution → position monitoring → exit
 **And** both platforms operate in paper mode (confirmed via startup logs showing `PaperTradingConnector` active for each platform)
@@ -1665,7 +1814,7 @@ So that I can validate the complete position lifecycle, monitoring stack, and sy
 **Then** go/no-go criteria from Story 6.5.3 (Phase 2 → Epic 7 gate) are evaluated with pass/fail for each criterion
 **And** all collected metrics, observation logs, and anomaly notes are organized for Story 6.5.6 (report compilation)
 
-**Sequencing:** Requires 6.5.4 complete with Phase 1 gate passed. Gates 6.5.6.
+**Sequencing:** Requires 6.5.4 complete. Gates 6.5.6.
 
 **Previous Story Intelligence:**
 - Paper trading connectors from Epic 5.5 simulate fills with configurable latency and slippage — fill parameters in `.env.production`
@@ -1722,8 +1871,7 @@ So that the decision to proceed with Epic 7 and production deployment is evidenc
 **Sequencing:** Requires 6.5.5 complete. Final story in Epic 6.5. Approval of this report gates Epic 7 planning.
 
 **Previous Story Intelligence:**
-- Phase 1 summary from Story 6.5.4 feeds into the report — don't re-analyze, incorporate
-- Daily observation logs from both phases provide the narrative backbone
+- Daily observation logs provide the narrative backbone
 - Metrics templates from Story 6.5.3 define the exact data points to report on — no ad hoc metrics
 - Event payload N/A gaps (Epic 6 retro carry-forward) — report should note which gaps impacted validation data quality, feeding into Epic 8 enrichment prioritization
 - PRD MVP Success Gate section is the authoritative reference for target values
@@ -2038,11 +2186,11 @@ So that I don't need to be available for every single-leg event.
 **And** if unwind fails, the position remains in "single_leg_exposed" for operator resolution (fallback to MVP workflow from Story 5.2/5.3)
 **And** an `AutoUnwindEvent` is emitted with action taken and result
 
-### Story 10.4: Adaptive Leg Sequencing
+### Story 10.4: Adaptive Leg Sequencing & Matched-Count Execution
 
 As an operator,
-I want the system to dynamically choose which platform's leg to execute first based on real-time latency,
-So that leg risk is minimized by executing the faster platform first.
+I want the system to dynamically choose which platform's leg to execute first based on real-time latency and to execute matched contract counts on both legs,
+So that leg risk is minimized and positions are truly hedged (equal contract counts on both sides of the arbitrage).
 
 **Acceptance Criteria:**
 
@@ -2054,6 +2202,24 @@ So that leg risk is minimized by executing the faster platform first.
 **Given** latency profiles are stable (difference <200ms)
 **When** sequencing is determined
 **Then** the static `primaryLeg` config is used (preserving MVP behavior)
+
+**Given** an arbitrage opportunity is ready for execution
+**When** position sizing is calculated
+**Then** the system performs pre-flight depth verification on BOTH legs before submitting either order
+**And** ideal count is computed as `idealCount = reservedCapitalUsd / (buyPrice + sellPrice)` (unified formula producing matched contract counts)
+**And** each leg is depth-capped independently: `cappedCount = min(idealCount, availableDepth)`
+**And** the final `matchedCount = min(primaryCapped, secondaryCapped)` is used for BOTH legs
+**And** edge re-validation (FR-EX-03a) runs with `matchedCount` before any order is submitted
+_(Added: Story 6.5.5b identified that the MVP model computes leg sizes independently from `reservedCapitalUsd / legPrice`, producing mismatched contract counts with asymmetric payoff profiles.)_
+
+**Given** pre-flight depth check rejects one or both legs
+**When** neither order has been submitted yet
+**Then** the full reservation is released cleanly (no single-leg exposure possible)
+**And** this eliminates the MVP constraint where primary is submitted before secondary depth is known
+
+**Tech Debt Note (from Story 6.5.0 code review, Finding #7):** `polymarket.connector.ts` has hardcoded `ORDER_POLL_TIMEOUT_MS` and `ORDER_POLL_INTERVAL_MS` with no exponential backoff or jitter. When implementing Story 10.4, make these timeouts configurable via `@nestjs/config` and add jitter to the polling loop.
+
+**Tech Debt Note (from Story 6.5.5b):** The MVP depth-aware sizing model computes primary and secondary ideal sizes independently (`reservedCapitalUsd / legPrice`), producing different contract counts. With asymmetric depth capping this divergence can widen, creating directional exposure rather than hedged arbitrage. This story's matched-count execution eliminates that limitation.
 
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
@@ -2080,6 +2246,8 @@ So that expanding to a third venue is a contained implementation effort.
 **Given** this is primarily a refactoring and verification story (not build-from-scratch)
 **When** I inspect the scope
 **Then** the work focuses on: ensuring dynamic connector registration, verifying no core module has hardcoded Kalshi/Polymarket references outside of `connectors/`, and documenting the extension pattern
+
+**Tech Debt Note (from Story 6.5.0 code review, Finding #11):** `polymarket.connector.ts` `postOrder` response uses blind `as Record<string, unknown>` casting without runtime validation. When implementing Story 11.1's connector plugin architecture, add runtime validation (e.g., Zod schemas) for all external API response types to prevent undefined order IDs and orphaned orders.
 
 ### Story 11.2: External Secrets Management Integration
 

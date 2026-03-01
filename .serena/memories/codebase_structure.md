@@ -161,10 +161,63 @@ src/
     └── logging.e2e-spec.ts
 ```
 
+## Dashboard Module (added in Story 7.1)
+
+```
+src/dashboard/
+├── dashboard.module.ts
+├── dashboard.controller.ts / dashboard.controller.spec.ts
+├── dashboard.service.ts / dashboard.service.spec.ts
+├── dashboard.gateway.ts / dashboard.gateway.spec.ts      # WebSocket gateway (@nestjs/platform-ws)
+├── dashboard-event-mapper.service.ts / .spec.ts           # Internal events → WS events
+└── dto/
+    ├── index.ts
+    ├── dashboard-overview.dto.ts / platform-health.dto.ts
+    ├── position-summary.dto.ts / alert-summary.dto.ts
+    ├── ws-events.dto.ts                                    # WS event payload interfaces
+    └── response-wrappers.dto.ts                            # { data, timestamp } Swagger wrappers
+```
+
+## Monitoring Module (added in Story 6.x)
+
+```
+src/modules/monitoring/
+├── monitoring.module.ts
+├── event-consumer.service.ts           # Central event subscription hub
+├── telegram-alert.service.ts           # Telegram Bot API integration
+├── csv-trade-log.service.ts            # Daily CSV logs
+├── compliance-checker.service.ts       # Pre-trade compliance
+├── trade-export.controller.ts          # GET /exports/trades, /tax-report
+└── dto/
+    ├── trade-export-query.dto.ts
+    └── tax-report-query.dto.ts
+```
+
+## Response DTOs for existing controllers (added in Story 7.1)
+
+- `src/common/dto/health-check-response.dto.ts` — AppController
+- `src/modules/execution/dto/single-leg-response.dto.ts` — SingleLegResolutionController
+- `src/modules/risk-management/dto/risk-override-response.dto.ts` — RiskOverrideController
+- `src/reconciliation/dto/reconciliation-response.dto.ts` — ReconciliationController
+
+## Dashboard SPA (pm-arbitrage-dashboard/ — separate repo)
+
+```
+pm-arbitrage-dashboard/
+├── Dockerfile / nginx.conf / entrypoint.sh
+├── src/
+│   ├── api/client.ts + generated/ (swagger-typescript-api)
+│   ├── components/ (HealthComposite, MetricDisplay, DashboardPanel, ConnectionStatus)
+│   ├── components/ui/ (shadcn: badge, card, alert, tooltip)
+│   ├── hooks/useDashboard.ts
+│   ├── providers/WebSocketProvider.tsx
+│   ├── pages/DashboardPage.tsx
+│   ├── types/ws-events.ts
+│   └── lib/env.ts, utils.ts
+└── public/env.js (runtime env injection)
+```
+
 ## NOT YET IMPLEMENTED (from CLAUDE.md architecture)
 
-- `dashboard/` — REST + WebSocket gateway for operator UI
-- `monitoring/` module — Only has .gitkeep
 - `common/filters/` — Global exception filter
 - `common/interceptors/` — correlationId, response wrapper
-- `common/constants/` — Error codes, risk limits, platform enums (some in respective modules)
