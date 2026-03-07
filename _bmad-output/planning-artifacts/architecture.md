@@ -624,7 +624,9 @@ modules/execution/ (depth-aware sizing → edge re-validation → submit orders,
     ↓                  ↑ primary leg submitted before secondary depth known (MVP constraint)
     ↓                  ↑ each leg independently capped to available depth (min 25% of ideal)
     ↓                  ↑ edge re-validated with actual gas fraction after sizing (FR-EX-03a)
-modules/exit-management/ (monitor positions, evaluate thresholds, trigger exits)
+modules/exit-management/ (monitor positions, VWAP-aware threshold evaluation, depth-verified exit sizing)
+    ↓                  ↑ exit orders depth-checked and capped to available liquidity (FR-EX-03)
+    ↓                  ↑ partial fills transition to EXIT_PARTIAL for operator resolution
     ↓ (EventEmitter2 fan-out from all modules)
 modules/monitoring/ (audit logs, Telegram alerts, dashboard events, compliance reports)
     ↓

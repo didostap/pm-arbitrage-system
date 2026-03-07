@@ -123,17 +123,20 @@ development_status:
   6-5-5g-kalshi-dynamic-fee-correction: done
   6-5-5h-execution-equal-leg-sizing: done
   6-5-5i-exit-threshold-calibration-fix: done
+  6-5-5j-take-profit-negative-threshold-fix: done
+  6-5-5k-exit-depth-partial-fill-handling: done
   6-5-5-paper-execution-validation: backlog
   6-5-6-validation-report-epic-7-readiness: backlog
   epic-6-5-retrospective: optional
 
   # EPIC 7: Operator Dashboard & Advanced Monitoring (Phase 1)
-  epic-7: in-progress
+  epic-7: done
   7-1-dashboard-project-setup-system-health-view: done
   7-2-open-positions-p-and-l-detail-view: done
   7-3-contract-matching-approval-interface: done
   7-4-weekly-performance-metrics-trends: done
-  epic-7-retrospective: optional
+  7-5-exit-proximity-display-fix: done
+  epic-7-retrospective: done
 
   # EPIC 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
   epic-8: backlog
@@ -174,9 +177,9 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 15 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation)
-# Total Stories: 65 (39 done + 8 Epic 6.5 + 18 Epics 7-12)
-# Total Items (Epics + Stories + Retrospectives): 84
-# Epics done: 8 (Epics 1-6, 4.5, 5.5)
-# Stories done: 40 (Epics 1-6 stories + Sprint 0 + Epic 4.5 stories + Epic 5.5 stories + 6-5-5b)
-# Retrospectives done: 8 (Epics 1-6, 4.5, 5.5)
-# MVP STATUS: COMPLETE — Epic 6.5 (Paper Trading Validation) gates Epic 7
+# Total Stories: 65
+# Epics done: 9 (Epics 1-7, 4.5, 5.5)
+# Stories done: 56 (Epics 1-6 + Sprint 0 + Epic 4.5 + Epic 5.5 + Epic 6.5 done stories + Epic 7)
+# Retrospectives done: 9 (Epics 1-7, 4.5, 5.5)
+# MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
+# NEXT: Epic 8 (Intelligent Contract Matching & Knowledge Base)
