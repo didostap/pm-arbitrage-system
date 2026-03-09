@@ -1975,6 +1975,236 @@ So that I can track whether the system is improving or degrading over time.
 **And** alert indicators highlight if opportunity frequency drops below baseline (8-12/week)
 **And** edge degradation leading indicators are surfaced (time-to-convergence trend, order book depth trend)
 
+### Epic 7.5: Position Lifecycle Improvements & Dashboard Enrichment
+Operator can manage the full position lifecycle — including partially exited positions — with comprehensive visibility into history, details, balance, and risk/reward projections. Discovered during paper trading validation (Story 6.5.5): EXIT_PARTIAL positions stall permanently, manual close fails for OPEN positions, and dashboard lacks operational depth.
+**FRs reinforced:** FR-EM-01 (fixed threshold exits — extended to EXIT_PARTIAL remainder), FR-EX-06 (operator close via dashboard), FR-MA-04 (dashboard enrichment)
+**Sprint Change Proposal:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-08.md`
+
+## Epic 7.5: Position Lifecycle Improvements & Dashboard Enrichment
+
+Operator can manage the full position lifecycle — including partially exited positions — with comprehensive visibility into history, details, balance, and risk/reward projections.
+
+### Story 7.5.1: EXIT_PARTIAL Re-evaluation & Dual-Platform Close Endpoint
+
+As an operator,
+I want partially exited positions to be automatically re-evaluated for exit by the exit monitor, and I want a new endpoint to manually close any open position across both platforms,
+So that positions never stall permanently and I always have a manual override for the full position lifecycle.
+
+**Acceptance Criteria:**
+
+**EXIT_PARTIAL Re-evaluation:**
+
+**Given** a position is in `EXIT_PARTIAL` status with unfilled remainder contracts
+**When** the exit monitor's polling cycle runs
+**Then** the position is included in the evaluation query alongside `OPEN` positions
+**And** the residual contract size is computed as `entryFillSize - alreadyExitedFillSize` per leg
+**And** `alreadyExitedFillSize` per leg is the sum of `filledQuantity` across all exit orders for that leg's platform (consistent with Story 6.5.5k's P&L source-of-truth: exit fills from Order records)
+**And** a shared `getResidualSize(position)` utility computes this, aggregating across all exit orders per leg, reusable by both the exit monitor and the close endpoint
+**And** all downstream logic (threshold evaluation, depth checks, VWAP close pricing, cross-leg equalization) operates on the residual sizes, not the original entry sizes
+
+**Given** an EXIT_PARTIAL position's residual contracts meet an exit threshold (SL, TP, or time-based)
+**When** exit orders are submitted for the remainder
+**Then** exit sizes are `min(residualPrimaryDepth, residualSecondaryDepth, residualEntryFillSize)`
+**And** if both legs fill for the full remainder, the position transitions to `CLOSED` with aggregate P&L (sum of partial exit P&L + remainder exit P&L)
+**And** if the remainder only partially fills again, the position stays `EXIT_PARTIAL` with an updated residual
+
+**Given** an EXIT_PARTIAL position has zero depth on either side
+**When** the exit monitor evaluates it
+**Then** the exit is deferred to the next cycle (same pattern as OPEN positions with no depth)
+
+**Dual-Platform Close Endpoint:**
+
+**Given** a position is in `OPEN` or `EXIT_PARTIAL` status
+**When** the operator calls `POST /api/positions/:id/close` with optional `{ rationale: string }`
+**Then** the system fetches fresh order books for both platforms
+**And** submits opposing trades on both legs simultaneously (sell what was bought, buy what was sold) using best available prices
+**And** for EXIT_PARTIAL positions, the close operates on the residual contract sizes (via `getResidualSize()`)
+**And** on success, the position transitions to `CLOSED` with realized P&L
+**And** risk budget is fully released (capital deployed decremented, position count decremented, pair removed from active tracking)
+
+**Given** one leg of the manual close fills but the other fails
+**When** a single-leg exposure occurs during manual close
+**Then** the position transitions to `SINGLE_LEG_EXPOSED` (not EXIT_PARTIAL — this is a fresh execution attempt)
+**And** a `SingleLegExposureEvent` is emitted with full context, recommended actions, and `origin: 'manual_close'` to distinguish from automated exit failures
+**And** the operator can resolve via existing retry-leg/close-leg endpoints (Story 5.3)
+
+**Given** the position is in any status other than `OPEN` or `EXIT_PARTIAL`
+**When** the operator calls `POST /api/positions/:id/close`
+**Then** the endpoint returns 422 with error "Position is not in a closeable state"
+
+**Implementation Notes:**
+- New `PositionManagementController` in `src/dashboard/` with `POST /api/positions/:id/close`
+- New `IPositionCloseService` interface in `common/interfaces/` — injected into dashboard controller via token (same pattern as `IPriceFeedService` from Story 7.2)
+- `PositionCloseService` implementation in `src/modules/execution/` coordinates dual-platform close via `IPlatformConnector`
+- `getResidualSize(position)` utility in `common/utils/` or co-located with position repository — aggregates exit order `filledQuantity` per leg per platform
+- Exit monitor query change: `findByStatusWithOrders(['OPEN', 'EXIT_PARTIAL'], isPaper)` — repository method accepts array of statuses
+- All financial math uses `decimal.js` — residual size = `new Decimal(entryFillSize).minus(sumOfExitFillSizes)`
+- Existing `close-leg` endpoint remains untouched — it serves a different purpose (single-platform resolution for SINGLE_LEG_EXPOSED)
+
+**DoD Gates:**
+- All existing tests pass (`pnpm test`), `pnpm lint` reports zero errors
+- New test cases cover: EXIT_PARTIAL re-evaluation with residual sizes, depth deferral on residual, aggregate P&L across multiple partial exits, dual-platform close for OPEN, dual-platform close for EXIT_PARTIAL residual, single-leg failure during manual close (with origin context), status guard (reject non-closeable statuses)
+- No `decimal.js` violations introduced
+
+### Story 7.5.2: Position History, Details Page & Balance Overview
+
+As an operator,
+I want to see my full position history, drill into detailed breakdowns of any position, see my available vs. blocked capital at a glance, and assess risk/reward via projected SL/TP P&L,
+So that I can understand how the system has been performing over time and make informed decisions about open positions.
+
+**Dependency Note:** The bulk of this story (position history queries, detail page, balance overview, audit trail index) has no dependency on Story 7.5.1 and can be developed in parallel. Only the SL/TP projected P&L for EXIT_PARTIAL positions depends on `getResidualSize()` from 7.5.1.
+
+**Acceptance Criteria:**
+
+**Position History:**
+
+**Given** the operator navigates to the positions view
+**When** the page loads
+**Then** a tab or toggle allows switching between "Open Positions" (current behavior) and "All Positions" (includes CLOSED, EXIT_PARTIAL, SINGLE_LEG_EXPOSED, RECONCILIATION_REQUIRED)
+**And** closed positions show: pair name, entry/exit prices, realized P&L, exit type (stop_loss / take_profit / time_based / manual), open/close timestamps, mode (paper/live)
+**And** the list is sorted by most recently updated, with pagination or virtual scrolling for large datasets
+
+**Given** the backend needs to serve position history
+**When** `GET /api/positions` is called
+**Then** it accepts optional query params: `status` (filter by one or more statuses), `isPaper` (boolean), `limit`, `offset`
+**And** closed positions include their associated orders (entry + exit) in the response DTO
+**And** the enrichment service computes realized P&L for closed positions from order fill records (same source-of-truth as 6.5.5k: `filledQuantity` × `fillPrice` on orders, never from `position.entryPrices`)
+
+**Position Details Page:**
+
+**Given** the operator clicks on any position row (open or closed)
+**When** the detail page loads
+**Then** it displays a comprehensive breakdown:
+- **Entry section:** Number of contracts per leg, entry prices (requested vs. fill), entry timestamps, entry slippage (fill price - requested price), capital invested (sum of both legs: fillSize × fillPrice + fees)
+- **Current state section (for open positions):** Current prices on both platforms, current edge, unrealized P&L, time held
+- **Exit section (for closed/partially exited):** Exit prices (requested vs. fill), exit timestamps, exit type and trigger reason, exit slippage, realized P&L breakdown (gross P&L - Kalshi fees - Polymarket fees)
+- **Order history:** Chronological list of all orders associated with this position (entry, exit attempts, partial fills, retry attempts) with status, timestamps, and fill details
+- **Audit trail:** Key events from audit_logs filtered by this position's pair_id (opportunity identified, risk reserved, orders filled, exit triggered, single-leg events)
+
+**Given** the detail page needs backend data
+**When** `GET /api/positions/:id/details` is called
+**Then** the response includes: position record, all associated orders, entry reasoning (from the audit log's `risk.budget.reserved` event details), and capital breakdown
+**And** the audit trail events are fetched from audit_logs filtered by pair_id with relevant event types only (not orderbook.updated or detection spam)
+
+**Audit Trail Index (mandatory):**
+
+**Given** the audit_logs table has 133K+ rows and growing
+**When** Story 7.5.2 is implemented
+**Then** a Prisma migration creates a functional btree index: `CREATE INDEX idx_audit_logs_pair_id ON audit_logs USING btree ((details->>'pairId'))`
+**And** the detail page's audit trail query uses this index path for performant filtering
+
+**Balance Overview:**
+
+**Given** the operator views the main dashboard
+**When** the system health / overview section loads
+**Then** it displays: total bankroll, deployed capital (blocked), available capital (bankroll - deployed - reserved), reserved capital (pending reservations not yet committed), and open position count
+**And** these values are sourced from the risk state endpoint — bankroll from engine environment config (single source of truth), deployed/reserved/count from the risk_states table
+
+**Given** the backend needs to serve balance data
+**When** `GET /api/risk/state` is called (extended existing endpoint)
+**Then** the response additionally includes: `totalBankroll` (from engine config), `availableCapital` (computed: bankroll - deployed - reserved)
+**And** bankroll is never hardcoded in the frontend — always fetched from the API to prevent drift if capital is topped up
+
+**SL/TP Projected P&L:**
+
+**Given** a position is in OPEN or EXIT_PARTIAL status
+**When** the positions table renders
+**Then** each position row displays projected P&L at the stop-loss threshold and projected P&L at the take-profit threshold
+**And** these values are computed by the enrichment service using: current close prices at SL/TP edge levels, position sizes (residual for EXIT_PARTIAL via `getResidualSize()`), and estimated fees
+**And** the display format shows both values inline (e.g., "SL: -$2.14 / TP: +$1.87") so the operator can assess risk/reward at a glance
+
+**Given** the enrichment service computes SL/TP projections
+**When** the backend returns position data via WebSocket or REST
+**Then** the enriched DTO includes `projectedSlPnl` and `projectedTpPnl` as decimal values
+**And** the computation lives in the enrichment service (not the threshold evaluator) to keep the trading hot path clean — same service that already computes exit proximity and current P&L
+
+**Implementation Notes:**
+- Position history and details leverage existing position repository with expanded query capabilities — no new tables
+- The detail page's audit trail uses the new btree index on `(details->>'pairId')` for performant JSONB filtering
+- Balance extends existing `GET /api/risk/state` response DTO — bankroll from `ConfigService`, everything else from risk_states table
+- SL/TP projected P&L in `PriceFeedService` enrichment — natural extension of existing enrichment pass that already has access to close prices, position data, and fee rates
+- Frontend: new route `/positions/:id` for detail page, tab component on positions list, balance card on dashboard home
+- All financial math uses `decimal.js`
+
+**DoD Gates:**
+- All existing tests pass (`pnpm test`), `pnpm lint` reports zero errors
+- New test cases cover: position history query with status filters, detail page DTO assembly with orders and audit events, audit trail index existence verification, balance computation (bankroll - deployed - reserved), SL/TP P&L projection with fee estimation, residual-size projections for EXIT_PARTIAL
+- No `decimal.js` violations introduced
+- Generated API client regenerated after new/modified endpoints
+
+### Story 7.5.3: Close All Positions & Updated Close UX
+
+As an operator,
+I want a "Close All Positions" bulk action and the existing per-position close button updated to use the new dual-platform close endpoint,
+So that I can quickly exit all positions in an emergency and the close button actually works for OPEN positions.
+
+**Sequencing:** Depends on both 7.5.1 (close endpoint) and 7.5.2 (enrichment for projected close P&L in dialog). Must be implemented last.
+
+**Acceptance Criteria:**
+
+**Updated Per-Position Close Button:**
+
+**Given** the operator clicks "Close" on a position in OPEN or EXIT_PARTIAL status
+**When** the confirmation dialog appears
+**Then** it shows: pair name, current P&L, projected close P&L at current market prices (from enrichment), and a rationale text field
+**And** on confirmation, the frontend calls `POST /api/positions/:id/close` (the new dual-platform endpoint from Story 7.5.1) instead of `POST /api/positions/:id/close-leg`
+**And** on success, the position row updates in real-time via WebSocket to reflect CLOSED status
+**And** on failure (single-leg exposure), the position row updates to SINGLE_LEG_EXPOSED and the operator sees the error context in a toast notification with a link to the position detail page
+
+**Given** a position is in CLOSED, SINGLE_LEG_EXPOSED, or RECONCILIATION_REQUIRED status
+**When** the positions table renders
+**Then** no "Close" button is shown for that position
+
+**Close All Positions:**
+
+**Given** the operator has one or more positions in OPEN or EXIT_PARTIAL status
+**When** they click "Close All Positions"
+**Then** a confirmation dialog shows: total number of positions to close, aggregate current P&L across all closeable positions, and a warning that this will attempt to close all positions at current market prices
+**And** the dialog requires the operator to type "CLOSE ALL" to prevent accidental triggering (same safety pattern as risk override confirmation from Story 4.3)
+**And** on confirmation, the frontend calls `POST /api/positions/close-all` with optional `{ rationale: string }`
+
+**Given** the backend receives `POST /api/positions/close-all`
+**When** the endpoint processes the request
+**Then** it returns immediately with `202 Accepted` and a `{ batchId: string }`
+**And** positions are closed sequentially in the background (not parallel — respect rate limits and sequential execution locking from Story 4.4)
+**And** each individual close acquires/releases the execution lock per-position (delegating to `IPositionCloseService`), allowing the exit monitor to still process non-queued positions without deadlock
+**And** as each position resolves, a `position.update` WebSocket event is pushed (existing event type) so the operator sees positions flipping to CLOSED one by one
+**And** when the batch completes, a `batch.complete` WebSocket event is pushed with summary: `{ batchId, closed: number, failed: number, rateLimited: number, results: [{ positionId, status, pnl?, error? }] }`
+
+**Given** rate limit headroom is insufficient for all remaining positions mid-batch
+**When** the rate limit pre-check fails for a position
+**Then** that position is skipped with `{ status: 'rate_limited' }` in the results
+**And** the batch continues with remaining positions (close as many as possible — partial success is better than full abort in an emergency)
+**And** the summary clearly reports how many were rate-limited so the operator knows to retry
+
+**Given** no positions are in a closeable state
+**When** the operator views the positions page
+**Then** the "Close All Positions" button is disabled with a tooltip "No open positions to close"
+
+**WebSocket Event Registration:**
+
+**Given** a new `batch.complete` event type is introduced
+**When** Story 7.5.3 is implemented
+**Then** `DashboardEventMapperService` is updated with the new event mapping
+**And** `DASHBOARD_EVENTS` constant includes the new event type
+**And** `WsEventEnvelope` types are extended to include the batch complete payload
+**And** this follows the same wiring pattern as Story 7.3's `match.pending` event
+
+**Implementation Notes:**
+- The per-position close dialog already exists from Story 7.2 — update API call target and add projected close P&L field
+- `POST /api/positions/close-all` in `PositionManagementController` (from 7.5.1), delegating to `IPositionCloseService`
+- Async batch processing: use NestJS event emitter or a simple in-memory queue — the batch runs in background, WebSocket pushes progress
+- Per-position execution lock ensures no conflict with exit monitor's concurrent polling cycles
+- Rate limit check per-position before each close attempt — skip and report if insufficient budget
+- "Close All" button: red, visually distinct, separated from routine controls, visible only when closeable positions exist
+- Frontend: progress indicator ("Closing 3/10...") driven by `position.update` WebSocket events already being listened to
+
+**DoD Gates:**
+- All existing tests pass (`pnpm test`), `pnpm lint` reports zero errors
+- New test cases cover: close-all async batch execution, close-all with mixed success/failure/rate-limited results, close-all with no closeable positions (empty result), per-position execution lock during batch (no deadlock), updated close button calls correct endpoint, confirmation dialog shows projected P&L, "CLOSE ALL" typed confirmation validation, `batch.complete` event emission and mapping
+- No `decimal.js` violations introduced
+- Generated API client regenerated after new endpoint
+
 ### Epic 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
 System automatically identifies potential contract matches via semantic analysis, scores confidence, auto-approves high-confidence matches, and learns from resolution outcomes.
 **FRs covered:** FR-AD-05, FR-AD-06, FR-AD-07, FR-CM-02, FR-CM-03, FR-CM-04

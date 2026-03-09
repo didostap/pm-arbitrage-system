@@ -138,6 +138,13 @@ development_status:
   7-5-exit-proximity-display-fix: done
   epic-7-retrospective: done
 
+  # EPIC 7.5: Position Lifecycle Improvements & Dashboard Enrichment
+  epic-7-5: done
+  7-5-1-exit-partial-re-evaluation-dual-platform-close: done
+  7-5-2-position-history-details-balance-overview: done
+  7-5-3-close-all-positions-updated-close-ux: done
+  epic-7-5-retrospective: done
+
   # EPIC 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
   epic-8: backlog
   8-1-knowledge-base-schema-resolution-tracking: backlog
@@ -176,10 +183,10 @@ development_status:
   epic-12-retrospective: optional
 
 # SUMMARY STATISTICS:
-# Total Epics: 15 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation)
-# Total Stories: 65
-# Epics done: 9 (Epics 1-7, 4.5, 5.5)
-# Stories done: 56 (Epics 1-6 + Sprint 0 + Epic 4.5 + Epic 5.5 + Epic 6.5 done stories + Epic 7)
-# Retrospectives done: 9 (Epics 1-7, 4.5, 5.5)
+# Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
+# Total Stories: 68
+# Epics done: 10 (Epics 1-7, 4.5, 5.5, 7.5)
+# Stories done: 59 (Epics 1-6 + Sprint 0 + Epic 4.5 + Epic 5.5 + Epic 6.5 done stories + Epic 7 + Epic 7.5)
+# Retrospectives done: 10 (Epics 1-7, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# NEXT: Epic 8 (Intelligent Contract Matching & Knowledge Base)
+# NEXT: Sprint 0.8 (Epic 8 Preparation, 2-day budget) → Epic 8 (Intelligent Contract Matching & Knowledge Base)
