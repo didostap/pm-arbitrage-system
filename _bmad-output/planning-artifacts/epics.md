@@ -196,6 +196,7 @@ FR-CM-01: Epic 3 - Manual contract pair curation
 FR-CM-02: Epic 8 - Semantic contract matching
 FR-CM-03: Epic 8 - Knowledge base storage
 FR-CM-04: Epic 8 - Resolution outcome feedback loop
+FR-CM-05: Epic 8 - Automated cross-platform candidate discovery
 FR-PI-01: Epic 1 - Kalshi API authentication
 FR-PI-02: Epic 2 - Polymarket wallet authentication
 FR-PI-03: Epic 1 - Rate limit enforcement (20% buffer)
@@ -2206,12 +2207,12 @@ So that I can quickly exit all positions in an emergency and the close button ac
 - Generated API client regenerated after new endpoint
 
 ### Epic 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
-System automatically identifies potential contract matches via semantic analysis, scores confidence, auto-approves high-confidence matches, and learns from resolution outcomes.
-**FRs covered:** FR-AD-05, FR-AD-06, FR-AD-07, FR-CM-02, FR-CM-03, FR-CM-04
+System automatically discovers candidate contract pairs from platform catalogs, scores confidence via semantic analysis, auto-approves high-confidence matches, and learns from resolution outcomes.
+**FRs covered:** FR-AD-05, FR-AD-06, FR-AD-07, FR-CM-02, FR-CM-03, FR-CM-04, FR-CM-05
 
 ## Epic 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
 
-System automatically identifies potential contract matches via semantic analysis, scores confidence, auto-approves high-confidence matches, and learns from resolution outcomes.
+System automatically discovers candidate contract pairs from platform catalogs, scores confidence via semantic analysis, auto-approves high-confidence matches, and learns from resolution outcomes.
 
 ### Story 8.1: Knowledge Base Schema & Resolution Tracking
 
@@ -2239,8 +2240,9 @@ So that I can scale beyond 20-30 manually curated pairs to 50+.
 **When** the confidence scorer analyzes a potential pair
 **Then** it produces a confidence score (0-100%) based on: settlement date matching (weighted highest), normalized string similarity on descriptions (cosine similarity on TF-IDF or similar), and resolution criteria keyword overlap (FR-AD-05, FR-CM-02)
 **And** the `ConfidenceScorerService` uses a pluggable scoring strategy interface (`IScoringStrategy`) so the algorithm can be swapped without changing consumers
-**And** the initial implementation uses deterministic string-based analysis (no LLM dependency) — settlement dates, normalized description similarity, and keyword overlap
-**And** the door is open for an LLM-based strategy implementation later via the same interface
+**And** the initial `IScoringStrategy` implementation uses LLM-based semantic analysis (cost-efficient model with optional escalation to higher-quality model for ambiguous cases) for high-accuracy confidence scoring
+**And** deterministic string-based analysis (TF-IDF, cosine similarity, keyword overlap) is implemented as a separate `PreFilterService` for use as the candidate narrowing stage in the discovery pipeline, not as the primary scoring strategy
+**And** LLM provider, model selection, and escalation thresholds are configurable via environment variables
 
 **Given** a confidence score is produced
 **When** the score is ≥85%
@@ -2270,6 +2272,78 @@ So that confidence scoring gets better over time with accumulated data.
 **When** calibration analysis runs
 **Then** confidence thresholds are evaluated against actual accuracy
 **And** recommendations are surfaced to operator (e.g., "auto-approve threshold could be lowered to 80% based on 0% divergence rate")
+
+### Story 8.4: Cross-Platform Candidate Discovery Pipeline
+
+As an operator,
+I want the system to automatically discover potential cross-platform contract matches from active platform listings,
+So that the scoring pipeline has an automated input source and I don't need to manually search both platforms for new pairs.
+
+**Acceptance Criteria:**
+
+**Given** both platform connectors implement `IContractCatalogProvider`
+**When** the scheduled discovery job runs (configurable, default: twice daily)
+**Then** active contract catalogs are fetched from all connected platforms via `listActiveContracts()` returning `ContractSummary[]` (title, description, category, settlement date, contract ID, platform)
+**And** catalogs are cached locally for the duration of the discovery run
+**And** the discovery job runs off the trading hot path via `@nestjs/schedule` (same pattern as NTP sync, daily health digests)
+
+**Given** contract catalogs are loaded from both platforms
+**When** the pre-filter stage runs
+**Then** for each contract on one platform, the opposite platform's catalog is narrowed to a shortlist using deterministic filters: category match, settlement date proximity (configurable window, default: ±7 days), and TF-IDF/cosine similarity on titles
+**And** pairs already in the knowledge base (approved, rejected, or pending) are excluded
+**And** the pre-filter produces candidate pairs with a shortlist of ~5-20 candidates per source contract
+
+**Given** candidate pairs survive the pre-filter
+**When** the scoring stage runs
+**Then** each candidate pair is routed through `ConfidenceScorerService` via the `IScoringStrategy` interface (FR-CM-05)
+**And** results flow into the existing auto-approve (≥85%) / operator review (<85%) workflow from Story 8.2
+**And** new candidate pairs appear as pending matches in the dashboard (Story 7.3's approval interface)
+
+**Given** a discovery run encounters LLM API errors
+**When** scoring fails for a candidate pair
+**Then** the candidate is queued for retry on the next scheduled discovery run
+**And** an `LlmScoringError` (error code range 4100-4199) is logged with context
+**And** discovery continues processing remaining candidates (partial failure is acceptable)
+**And** the trading hot path is never affected by discovery failures
+
+**Given** `IContractCatalogProvider` is defined in `common/interfaces/`
+**When** a new platform connector is added (Epic 11)
+**Then** implementing `IContractCatalogProvider` is optional (separate from `IPlatformConnector`)
+**And** connectors that implement it automatically participate in discovery runs without core module changes
+
+**Tech Note:** Recommended initial LLM configuration: Gemini 2.5 Flash as primary (cost-efficient, good quality), Claude Haiku 4.5 for escalation on ambiguous cases. At ~5,000 comparisons per discovery run, estimated LLM API cost is a few cents per run. Model selection is configurable via environment variables per Story 8.2's AC.
+
+### Story 8.6: Candidate Discovery Filtering Fixes & Match Page Pagination
+
+As an operator,
+I want the candidate discovery pipeline to use correct settlement dates from Kalshi, filter out unrelated candidates effectively, and the match review page to support pagination,
+So that LLM API calls are not wasted on garbage candidates, the match review queue is navigable at scale, and the data quality is correct for downstream features (Story 8.3, Story 9.3).
+
+**Acceptance Criteria:**
+
+**Given** the Kalshi API returns markets with `expected_expiration_time`, `expiration_time`, and `close_time` fields
+**When** `mapToContractSummary` maps a Kalshi market to `ContractSummary`
+**Then** `settlementDate` uses the fallback chain: `expected_expiration_time` → `expiration_time` → `close_time`
+**And** given `expiration_time` is required per the Kalshi SDK, when a market response lacks both `expected_expiration_time` and `expiration_time`, then a structured warning is emitted with the market ticker so the anomaly is visible in operational logs
+
+**Given** `isWithinSettlementWindow` receives a contract pair where either settlement date is undefined
+**When** the date filter evaluates the pair
+**Then** the pair is excluded (`return false`), not included
+
+**Given** the pre-filter TF-IDF threshold is applied to candidate pairs
+**When** the threshold value is calibrated
+**Then** the value is determined by before/after analysis against the existing 693 matches in the database
+**And** all 4 legitimate matches (scores 40–55) must survive the tighter filter
+**And** the before/after candidate analysis is documented in the dev agent record with exact counts
+
+**Given** the match review page displays contract matches
+**When** there are more than 20 matches for the selected filter
+**Then** prev/next pagination controls are displayed with a page indicator
+**And** page resets to 1 when the status filter changes
+
+**Sprint Change Proposal:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-10b.md`
+
+**Problem A (text length inconsistency) decision gate:** Only pursue description normalization if the post-fix analysis shows remaining garbage matches where description asymmetry is a contributing factor. If numbers are clean after B0+B1+B2, skip entirely.
 
 ### Epic 9: Advanced Risk & Portfolio Management (Phase 1)
 System provides correlation-aware position sizing, dynamic cluster limits, confidence-adjusted sizing, and Monte Carlo stress testing.

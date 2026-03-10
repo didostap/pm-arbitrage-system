@@ -172,6 +172,7 @@ SystemError
   ├── ExecutionError (2000-2999) — severity, retryStrategy, affectedPositionId
   ├── RiskLimitError (3000-3999) — severity, limitType, currentValue, threshold
   └── SystemHealthError (4000-4999) — severity, component, diagnosticInfo
+      └── LlmScoringError (4100-4199) — LLM API failures during discovery scoring; retry = queue for next run, never block hot path
 ```
 Global exception filter routes by severity: Critical → high-priority event (Telegram + audit + potential halt). Warning → dashboard update + log. Info → log only.
 
@@ -426,6 +427,7 @@ pm-arbitrage-engine/
 │   ├── common/
 │   │   ├── interfaces/
 │   │   │   ├── platform-connector.interface.ts    # IPlatformConnector
+│   │   │   ├── contract-catalog-provider.interface.ts  # IContractCatalogProvider
 │   │   │   ├── risk-manager.interface.ts          # IRiskManager
 │   │   │   ├── execution-engine.interface.ts      # IExecutionEngine
 │   │   │   └── detection-engine.interface.ts      # IDetectionEngine
@@ -434,7 +436,8 @@ pm-arbitrage-engine/
 │   │   │   ├── platform-api-error.ts              # 1000-1999
 │   │   │   ├── execution-error.ts                 # 2000-2999
 │   │   │   ├── risk-limit-error.ts                # 3000-3999
-│   │   │   └── system-health-error.ts             # 4000-4999
+│   │   │   ├── system-health-error.ts             # 4000-4999
+│   │   │   └── llm-scoring-error.ts               # 4100-4199 (subclass of SystemHealthError)
 │   │   ├── events/
 │   │   │   ├── execution.events.ts                # OrderFilledEvent, SingleLegExposureEvent, etc.
 │   │   │   ├── risk.events.ts                     # LimitApproachedEvent, LimitBreachedEvent, etc.
@@ -496,7 +499,13 @@ pm-arbitrage-engine/
 │   │   │   ├── knowledge-base.service.ts          # CRUD for contract_matches table, feedback loop
 │   │   │   ├── knowledge-base.service.spec.ts
 │   │   │   ├── confidence-scorer.service.ts       # Phase 1: scoring logic, separate for testability
-│   │   │   └── confidence-scorer.service.spec.ts
+│   │   │   ├── confidence-scorer.service.spec.ts
+│   │   │   ├── candidate-discovery.service.ts     # Orchestrates discovery: catalog → pre-filter → scoring
+│   │   │   ├── candidate-discovery.service.spec.ts
+│   │   │   ├── catalog-sync.service.ts            # Fetches active contracts from platforms via IContractCatalogProvider
+│   │   │   ├── catalog-sync.service.spec.ts
+│   │   │   ├── pre-filter.service.ts              # Deterministic candidate narrowing (category, date, TF-IDF)
+│   │   │   └── pre-filter.service.spec.ts
 │   │   ├── execution/
 │   │   │   ├── execution.module.ts
 │   │   │   ├── execution.service.ts               # Coordinated cross-platform order submission
@@ -593,6 +602,7 @@ modules/execution/ → connectors/ (submits orders), modules/risk-management/ (b
 modules/exit-management/ → connectors/ (exit orders), modules/risk-management/ (budget release)
 modules/monitoring/ → persistence/ (audit logs, reports), common/events/ (subscribes to all)
 modules/contract-matching/ → persistence/ (knowledge base CRUD)
+modules/contract-matching/ → connectors/ (catalog sync via IContractCatalogProvider)
 All modules → common/ (interfaces, errors, events, types, constants)
 dashboard/ → modules/monitoring/ (event subscription for WebSocket push)
 persistence/ → prisma/ (database access)

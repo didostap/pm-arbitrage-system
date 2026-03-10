@@ -21,6 +21,7 @@
 #   - in-progress: Developer actively working on implementation
 #   - review: Ready for code review (via Dev's code-review workflow)
 #   - done: Story completed
+#   - dropped: Story superseded or no longer needed (with rationale comment)
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -106,7 +107,7 @@ development_status:
   epic-6-retrospective: done
 
   # EPIC 6.5: Paper Trading Validation (HARD GATE before Epic 7)
-  epic-6-5: in-progress
+  epic-6-5: done
   6-5-0-codebase-readiness-tech-debt-clearance: done
   6-5-0a-code-review-tech-debt-fixes: done
   6-5-1-event-pair-selection-contract-configuration: done
@@ -125,8 +126,8 @@ development_status:
   6-5-5i-exit-threshold-calibration-fix: done
   6-5-5j-take-profit-negative-threshold-fix: done
   6-5-5k-exit-depth-partial-fill-handling: done
-  6-5-5-paper-execution-validation: backlog
-  6-5-6-validation-report-epic-7-readiness: backlog
+  6-5-5-paper-execution-validation: dropped # Superseded by organic bug-fix stories (6-5-5a through 6-5-5k) during live paper trading
+  6-5-6-validation-report-epic-7-readiness: dropped # Epic 7 delivered successfully without formal gate; validation happened organically
   epic-6-5-retrospective: optional
 
   # EPIC 7: Operator Dashboard & Advanced Monitoring (Phase 1)
@@ -146,11 +147,17 @@ development_status:
   epic-7-5-retrospective: done
 
   # EPIC 8: Intelligent Contract Matching & Knowledge Base (Phase 1)
-  epic-8: backlog
-  8-1-knowledge-base-schema-resolution-tracking: backlog
-  8-2-semantic-contract-matching-confidence-scoring: backlog
-  8-3-resolution-feedback-loop: backlog
-  epic-8-retrospective: optional
+  epic-8: done
+  8-1-knowledge-base-schema-resolution-tracking: done
+  8-2-semantic-contract-matching-confidence-scoring: done
+  8-4-cross-platform-candidate-discovery-pipeline: done
+  8-5-contract-matching-bugfixes: done
+  8-6-candidate-discovery-filtering-fixes-match-page-pagination: done
+  8-3-resolution-feedback-loop: done
+  8-7-discovery-llm-batch-parallelization: done  # Course correction 2026-03-11: batch parallelization of sequential LLM scoring in candidate discovery
+  epic-8-retrospective: done
+  8-8-rate-limiter-refill-rate-fix: done  # Course correction 2026-03-11: fix hardcoded refillRatePerSec=1, add dynamic tier detection via GET /account/limits
+  8-9-polymarket-rate-limit-config-fix: done  # Course correction 2026-03-11: fix Polymarket fromLimits(2,2) → fromLimits(50,50) per actual published API limits
 
   # EPIC 9: Advanced Risk & Portfolio Management (Phase 1)
   epic-9: backlog
@@ -184,9 +191,10 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
-# Total Stories: 68
-# Epics done: 10 (Epics 1-7, 4.5, 5.5, 7.5)
-# Stories done: 59 (Epics 1-6 + Sprint 0 + Epic 4.5 + Epic 5.5 + Epic 6.5 done stories + Epic 7 + Epic 7.5)
-# Retrospectives done: 10 (Epics 1-7, 4.5, 5.5, 7.5)
+# Total Stories: 71 (2 dropped in Epic 6.5)
+# Epics done: 12 (Epics 1-8, 4.5, 5.5, 6.5, 7.5)
+# Stories done: 65 (all done stories through Epic 8)
+# Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
+# Retrospectives done: 12 (Epics 1-8, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# NEXT: Sprint 0.8 (Epic 8 Preparation, 2-day budget) → Epic 8 (Intelligent Contract Matching & Knowledge Base)
+# NEXT: Pre-Epic 9 Tech Debt Sprint (3-day budget: branded types, calibration persistence, Zod boundary schemas) → Epic 9 (Advanced Risk & Portfolio Management)

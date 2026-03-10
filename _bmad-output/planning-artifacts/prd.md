@@ -898,6 +898,8 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **FR-CM-04 [Phase 1]:** System shall use resolution outcome data from knowledge base as feedback to improve confidence scoring accuracy for future matches.
 
+**FR-CM-05 [Phase 1]:** System shall automatically discover candidate cross-platform contract pairs by: (1) periodically syncing active contract catalogs from all connected platforms via scheduled batch job (1-2x daily, off the trading hot path), (2) applying deterministic pre-filters (category match, settlement date proximity, TF-IDF/cosine similarity on titles) to narrow the cross-product to plausible candidates, and (3) routing surviving candidates through the confidence scoring pipeline (FR-AD-05, FR-CM-02) for automated approval (≥85%) or operator review (<85%). Pairs already in the knowledge base (approved, rejected, or pending) are excluded from re-scoring.
+
 ### Platform Integration & Compliance
 
 **FR-PI-01 [MVP]:** System shall authenticate with Kalshi using API key-based authentication per platform requirements.
