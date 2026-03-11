@@ -133,7 +133,7 @@ All 5 categories decided — data architecture, security, communication patterns
 
 ### Data Architecture
 
-**Database Schema Strategy:** Single PostgreSQL instance with logical separation via table prefixes or Prisma schema namespaces. Five data domains (positions/orders, contract matches, audit logs, risk state, platform health) in one database. Single backup strategy, single connection pool, single monitoring point. The data domains don't have different scaling characteristics at this scale.
+**Database Schema Strategy:** Single PostgreSQL instance with logical separation via table prefixes or Prisma schema namespaces. Seven data domains (positions/orders, contract matches, audit logs, risk state, platform health, calibration history, engine configuration) in one database — 13 Prisma models total. Single backup strategy, single connection pool, single monitoring point. The data domains don't have different scaling characteristics at this scale. Engine configuration (bankroll, future risk parameters) is persisted in a dedicated `EngineConfig` singleton model with typed columns — not a generic key-value store.
 
 **Audit Log Architecture:** Append-only table with SHA-256 cryptographic chaining. Each audit log entry includes hash of previous entry, creating a verifiable chain satisfying PRD's "tamper-evident logging" requirement (NFR-S3). No trigger-based capture — the system is the sole writer to trading tables, so all state changes are already logged explicitly through the Monitoring module. Hash chain provides cryptographic proof of ordering and completeness for legal review.
 
@@ -161,7 +161,7 @@ All 5 categories decided — data architecture, security, communication patterns
 - **Fan-out (async EventEmitter2):** Every module emits domain events (`OrderFilled`, `SingleLegExposure`, `LimitApproached`, `OpportunityIdentified`, etc.) that Monitoring subscribes to for dashboard updates, Telegram alerts, audit logging, and CSV exports. Telegram API timeout never delays the next execution cycle.
 
 **Dashboard API:** REST endpoints (flat structure) + NestJS WebSocket gateway.
-- REST: `/api/health`, `/api/positions`, `/api/positions/:id`, `/api/alerts`, `/api/matches/pending`, `/api/matches/:id/approve`, `/api/matches/:id/reject`, `/api/performance/weekly`, `/api/performance/daily`, `/api/compliance/export`. No deep nesting.
+- REST: `/api/health`, `/api/positions`, `/api/positions/:id`, `/api/alerts`, `/api/matches/pending`, `/api/matches/:id/approve`, `/api/matches/:id/reject`, `/api/performance/weekly`, `/api/performance/daily`, `/api/compliance/export`, `/api/knowledge-base/calibration` (GET latest, POST trigger), `/api/knowledge-base/calibration/history` (GET with `?limit`). No deep nesting.
 - WebSocket: NestJS WebSocket gateway subscribes to EventEmitter2 events, pushes to dashboard client. Event types: `position.update`, `alert.new`, `health.change`, `execution.complete`, `match.pending`. Native WebSocket with simple reconnection wrapper (exponential backoff). No Socket.IO dependency.
 - API documentation via `@nestjs/swagger` — backend is single source of truth for API contracts.
 
@@ -217,6 +217,7 @@ interface IPlatformConnector {
 
 **Environment Configuration:** Combination approach:
 - `.env` files per environment (`.env.development`, `.env.production`): Non-sensitive config — polling intervals, edge thresholds, risk limits, feature flags, ports, database host/name. Loaded by `@nestjs/config` based on `NODE_ENV`.
+- Database-persisted config (`engine_config` table): Operator-tunable values that need hot-reload without restart and must survive container redeployments. Currently: bankroll (`bankroll_usd`). Env vars serve as seed defaults for fresh installs; DB value takes precedence once seeded. Editable via dashboard REST API.
 - Docker secrets (production only): Kalshi API key/secret, Polymarket keystore password, dashboard API token, PostgreSQL password. Mounted as files, read at startup. Never in `.env`, compose files, or version control.
 - Local development uses `.env.development` with Kalshi sandbox API and testnet wallet credentials.
 - **Paper Trading Configuration (per-platform):**
@@ -418,7 +419,10 @@ pm-arbitrage-engine/
 ├── prisma/
 │   ├── schema.prisma                       # All tables: positions, orders, contract_matches,
 │   │                                       # audit_logs, risk_states, order_book_snapshots,
-│   │                                       # platform_health_logs, compliance_reports
+│   │                                       # platform_health_logs, engine_config,
+│   │                                       # risk_override_logs, calibration_runs,
+│   │                                       # correlation_clusters, cluster_tag_mappings,
+│   │                                       # stress_test_runs
 │   ├── migrations/
 │   └── seed.ts                             # Dev seed data (test contract pairs, mock positions)
 ├── src/
@@ -687,6 +691,34 @@ The MVP execution flow submits the primary leg before checking secondary depth (
 | Platform Integration | `connectors/kalshi/` + `connectors/polymarket/` | FR-PI-01 through FR-PI-07 |
 | Data Export | `modules/monitoring/` + `persistence/repositories/` | FR-DE-01 through FR-DE-04 |
 | Scheduling | `core/scheduler.service.ts` | NTP sync (NFR-R5), polling cycle (NFR-P1), daily test alerts |
+
+## Concurrent Polling & Health State Model (Story 9.15)
+
+### Concurrent Polling Strategy
+The data ingestion service uses `p-limit(concurrency)` to control how many `getOrderBook()` calls are in-flight simultaneously. This composes with the existing token bucket `RateLimiter` inside each connector:
+
+```
+p-limit(concurrency) → connector.getOrderBook() → rateLimiter.acquireRead() → API call
+```
+
+- `p-limit` controls **parallelism** (how many promises are pending at once)
+- Token bucket `RateLimiter` controls **throughput** (how fast API calls proceed)
+- Configurable via `KALSHI_POLLING_CONCURRENCY` (default: 10) and `POLYMARKET_POLLING_CONCURRENCY` (default: 5)
+- Kalshi: concurrent polling replaces sequential `for` loop. At Basic tier (16 effective reads/s), 389 pairs complete in ~24s vs ~117s sequential.
+- Polymarket: main path uses batch `getOrderBooks()` (single API call). Concurrency env var exists for future fallback.
+
+### `initializing` Health State
+`PlatformHealth.status` now includes `'initializing'` — returned when `lastUpdateTime === 0` (no data received yet). Prevents false `PLATFORM_HEALTH_DEGRADED` events on engine boot. Semantics:
+- `initializing`: don't trade AND don't alert (normal boot)
+- `degraded`: don't trade AND do alert (problem detected after healthy)
+- Degradation events only fire after the platform has been `'healthy'` at least once.
+
+### Per-Pair Staleness Model
+`PlatformHealthService.lastContractUpdateTime: Map<string, number>` tracks per-contract update timestamps using composite key `${platformId}:${contractId}`. Detection switches from platform-level `getOrderbookStaleness()` to per-contract `getContractStaleness(platform, contractId)`:
+- Stale contract X does not block fresh contract Y on the same platform
+- Unknown contracts (not yet polled) return `stale: false` (startup grace)
+- Platform-level staleness events (ORDERBOOK_STALE/RECOVERED) are retained for operator alerting
+- No active Map cleanup — stale entries are harmless, memory is bounded (~4MB at 100K entries)
 
 ## Architecture Validation Results
 

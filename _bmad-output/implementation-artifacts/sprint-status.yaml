@@ -154,18 +154,41 @@ development_status:
   8-5-contract-matching-bugfixes: done
   8-6-candidate-discovery-filtering-fixes-match-page-pagination: done
   8-3-resolution-feedback-loop: done
-  8-7-discovery-llm-batch-parallelization: done  # Course correction 2026-03-11: batch parallelization of sequential LLM scoring in candidate discovery
+  8-7-discovery-llm-batch-parallelization: done # Course correction 2026-03-11: batch parallelization of sequential LLM scoring in candidate discovery
   epic-8-retrospective: done
-  8-8-rate-limiter-refill-rate-fix: done  # Course correction 2026-03-11: fix hardcoded refillRatePerSec=1, add dynamic tier detection via GET /account/limits
-  8-9-polymarket-rate-limit-config-fix: done  # Course correction 2026-03-11: fix Polymarket fromLimits(2,2) → fromLimits(50,50) per actual published API limits
+  8-8-rate-limiter-refill-rate-fix: done # Course correction 2026-03-11: fix hardcoded refillRatePerSec=1, add dynamic tier detection via GET /account/limits
+  8-9-polymarket-rate-limit-config-fix: done # Course correction 2026-03-11: fix Polymarket fromLimits(2,2) → fromLimits(50,50) per actual published API limits
 
   # EPIC 9: Advanced Risk & Portfolio Management (Phase 1)
-  epic-9: backlog
-  9-1-correlation-cluster-tracking-exposure-calculation: backlog
-  9-2-correlation-limit-enforcement-triage-recommendations: backlog
-  9-3-confidence-adjusted-position-sizing: backlog
-  9-4-monte-carlo-stress-testing: backlog
-  epic-9-retrospective: optional
+  # Pre-Epic 9 Tech Debt Sprint (split into 9-0-1 and 9-0-2)
+  epic-9: done
+  9-0-1-branded-types-calibration-persistence: done # Tech debt: branded entity IDs (7 types) + calibration DB persistence
+  9-0-2-zod-boundary-schemas: done # Tech debt: runtime validation at system boundaries (env vars, JSON fields, API responses). Code review completed 2026-03-12: fixed 1 build-breaking, 4 critical, 6 high issues.
+  9-1-correlation-cluster-tracking-exposure-calculation: done # Code review completed 2026-03-12: fixed 3 HIGH, 4 MEDIUM, 3 LOW issues
+  9-1a-kalshi-fixed-point-api-migration: done # Course correction 2026-03-12: Kalshi removed legacy integer orderbook fields, connector broken. Code review completed 2026-03-12: fixed 2 MEDIUM documentation issues (undocumented Polymarket changes, inaccurate test count)
+  9-1b-orderbook-staleness-detection-alerting: done # Course correction 2026-03-12: no alert fired when orderbook data went stale, observability gap. Code review completed 2026-03-13: fixed 2 MEDIUM, 2 LOW issues.
+  9-5-capital-efficiency-gating-resolution-date-filtering: done # Course correction 2026-03-13: system enters positions without evaluating capital efficiency or resolution date presence. Code review completed 2026-03-13: fixed 3 MEDIUM, 3 LOW issues.
+  9-2-correlation-limit-enforcement-triage-recommendations: done # Implemented 2026-03-13: soft-limit tapering, hard-limit rejection + triage, aggregate limit, Uncategorized fallback, Telegram alerts. Code review #2 completed 2026-03-13: fixed 3 MEDIUM (dead WS handlers, null effectiveClusterId fallback, duplicate triage serialization), 3 LOW issues.
+  9-6-audit-log-retention-pruning: done # Course correction 2026-03-13: unbounded audit_logs table growth, no retention policy. Add configurable pruning (default 7 days). Implemented 2026-03-13: daily cron pruning, verifyChain() post-pruning anchor fix, +10 tests (1927→1937). Code review completed 2026-03-13: fixed 2 MEDIUM (fake timer test cleanup, weak withCorrelationId test), 3 LOW issues.
+  9-7-matches-page-redesign: done # Implemented 2026-03-13: table redesign, tabbed views, cluster filter, detail page, 8 new DTO fields, DataTable component, dead code cleanup. Code review #2 completed 2026-03-13: fixed 2 MEDIUM (incomplete test factory, duplicated status utils), 2 LOW (aria-label, combined filter test).
+  9-3-confidence-adjusted-position-sizing: done # Implemented 2026-03-13: confidence-adjusted position sizing (base × score/100), null→100%, range validation, extractPairContext rename+hoist, RiskDecision observability fields, +18 tests. Code review #2 completed 2026-03-13: fixed 3 MEDIUM (0% approval status test, rejection-path observability test, YAML null confidence test), 3 LOW noted.
+  9-8-primary-leg-backfill-fix: done # Course correction 2026-03-13: primary_leg never set at creation, NULL in all matches
+  9-4-monte-carlo-stress-testing: done # Implemented 2026-03-13: Monte Carlo simulation (1000+ random + 3 synthetic scenarios), VaR 95%/99%, drawdown probabilities, alert logic, weekly cron, +29 tests (1963→1992). Code review #2 completed 2026-03-13: fixed 4 MEDIUM (non-deterministic alert tests, dead DTO imports, shared config mutation, weak correlationId test), 3 LOW noted.
+  9-4a-stress-test-dashboard-page: done # Course correction 2026-03-13: dedicated dashboard page for stress test visualization, manual trigger, and parameter suggestions. Implemented 2026-03-13. Code review completed 2026-03-13: fixed 3 MEDIUM (drawdown bar overflow, wrong trigger type annotation, dead formatPercent), 3 LOW noted.
+  9-9-match-apr-visibility: done # Course correction 2026-03-13: APR computed in detection pipeline but never persisted/displayed. Persist via event fan-out, expose in API + sortable Matches table column. Implemented 2026-03-13: event subscribers, server-side sort, APR column + detail page Capital Efficiency section, +16 tests (1991→2007). Code review #2 completed 2026-03-13: fixed 2 MEDIUM (missing edge-calculator event assertions, non-sortable columns), 1 MEDIUM (weak error-path assertions), 1 LOW (duplicate import).
+  9-10-unified-datatable-url-state: done # Course correction 2026-03-13: migrate all tables to shared DataTable component, add URL query param state persistence for sorting/pagination/filters. Implemented 2026-03-13: backend positions sorting (PositionSortField enum, PositionsQueryDto + ValidationPipe, repository orderBy), shared cell renderers (PnlCell, StatusBadge, ExitTypeBadge, RiskRewardCell), useUrlTableState hook, DataTable urlStateKey, 5 page migrations, PositionsTable.tsx deleted, +8 backend tests (2007→2015). Code review #1 completed 2026-03-13: fixed 1 CRITICAL (missing DTO/ValidationPipe). Code review #2 completed 2026-03-14: fixed 3 MEDIUM (AC #11 URL param validation, missing EventEmitter2 test mock, RiskRewardCell NaN guard), 3 LOW (WeekData any type, inline config objects, mode/status allowed values).
+  9-11-tab-based-routing-default-order: done # Course correction 2026-03-13: convert tabs to route segments (matches: approved/pending/rejected, positions: open/all), default matches to Approved tab. Implemented 2026-03-14: nested layout routes, NavLink tabs with ARIA, query param preservation, 2 layout components created, 4 files modified. Code review completed 2026-03-14: fixed P1 (useLocation→searchParams in buildTabUrl). Code review #2 completed 2026-03-14: fixed 2 MEDIUM (dead cluster filterKey, missing aria-selected), 2 LOW noted.
+  9-12-cross-entity-navigation-match-positions: done # Course correction 2026-03-13: bidirectional position↔match links, match detail page shows position history table, new matchId filter on positions endpoint. Implemented 2026-03-14: matchId query filter on positions endpoint, positionCount/activePositionCount on match responses, pairId on position DTOs, position history DataTable on match detail page, pair name links on positions pages, positions count column on matches table, +11 tests (2016→2027). Code review #2 completed 2026-03-14: fixed 3 MEDIUM (ACTIVE_POSITION_STATUSES dedup, mutation response count docs, PositionsPage pagination wiring), 2 LOW noted.
+  9-13-left-sidebar-navigation: done # Course correction 2026-03-13: replace header nav with left sidebar, add TopBar for health status. Implemented 2026-03-14: shadcn/ui Sidebar (collapsible icon mode + SidebarRail), AppSidebar with 5 nav items + pending badge + version display, TopBar with health dots + compact ConnectionStatus, localStorage persistence, App.tsx restructured, Navigation.tsx deleted, UX spec updated. Code review #1 completed: fixed cookie→localStorage (removed cookie write from SidebarProvider), localStorage try-catch, PendingDot positioning. Code review #2 completed 2026-03-14: fixed 1 CRITICAL (missing SidebarTrigger+Separator in TopBar — mobile nav broken), 2 MEDIUM (reverted unauthorized max-width removal from 7 pages violating AC#14, documented overflow-auto wrapper), 2 LOW noted.
+  9-14-bankroll-db-persistence-ui: done # Course correction 2026-03-13: move bankroll from .env to EngineConfig DB, editable via dashboard, hot-reload without restart. Code review completed 2026-03-14: fixed 1 HIGH (missing updatedBy field), 5 MEDIUM (Telegram formatter, test coverage, dead prop).
+  9-15-platform-health-concurrent-polling: done # Course correction 2026-03-14: epoch zero health bug (false degradation on startup), sequential polling bottleneck (389 pairs × 300ms = 117s exceeds 90s threshold), per-pair staleness model replacing per-platform. Also resolves stale data missed entry (Issue 2). Implemented 2026-03-14: p-limit concurrent polling, initializing health state, per-pair staleness model, +19 tests (2037→2056). Code review completed 2026-03-14: fixed 3 MEDIUM (WS recordUpdate→recordContractUpdate consistency, missing AC#10 rejected-promise test, missing AC#11/AC#12 startup-warning+duration tests).
+  9-16-risk-state-paper-trade-reconciliation: done # Implemented 2026-03-14: dual risk state rows (live/paper), ModeRiskState per-mode isolation, calculateLegCapital sell-side formula, per-mode reconciliation, correlation tracker isPaper filter, exit monitor isPaper passthrough, dashboard capitalOverview nested DTO, +9 tests (2056→2065). Code review #2 completed 2026-03-14: fixed 3 MEDIUM (resolveDiscrepancy isPaper passthrough, computeCapitalBreakdown sell-side formula, paper capital overview test).
+  9-17-stale-apr-display-fix: done # Course correction 2026-03-14: lastAnnualizedReturn preserved when lastNetEdge goes negative, showing contradictory 28% APR alongside -0.14% net edge. Null out stale APR on filtered events without computed annualized return. Implemented 2026-03-14: unconditional lastAnnualizedReturn+lastNetEdge writes in both handlers, MatchAprFields interface, emission site audit JSDoc, +4 tests (2065→2069). Code review #2 completed 2026-03-14: fixed 2 MEDIUM (duplicate test, inconsistent string conversion), 3 LOW noted.
+  9-18-take-profit-threshold-formula-fix: done # Course correction 2026-03-14: TP formula floors to $0.00 when entryCostBaseline exceeds scaledInitialEdge (high spread/fee, small position). Fallback to scaledInitialEdge × TP_RATIO for edge-relative TP. Implemented 2026-03-14: shared computeTakeProfitThreshold(), both services refactored, +12 tests (2069→2081). Code review completed 2026-03-14: fixed 1 MEDIUM (hoisted Decimal constants), 2 LOW noted.
+  9-19-vwap-dashboard-pricing-position-calculation-consolidation: done # Implemented 2026-03-15: 3 shared pure functions (VWAP, legPnl, exitProximity), IPriceFeedService.getVwapClosePrice(), service refactoring (ExitMonitor, ThresholdEvaluator, PositionEnrichment), depth-sufficiency DTOs, dashboard depth-insufficient visual treatment, +31 tests (2081→2112). Code review #2 completed 2026-03-15: fixed 3 MEDIUM (detail page tooltip, FinancialDecimal in calculateLegPnl, EXIT_PARTIAL VWAP size test).
+  9-20-platform-staleness-investigation-remediation: done # Implemented 2026-03-15: investigation found WS subscriptions never established (root cause), fix: post-ingestion publishHealth() call + transition logging, +7 tests (2112→2119). Code review #2 completed 2026-03-15: fixed 3 MEDIUM (pollingCycleDurationMs metric pollution, incomplete recovery transition test, missing total-failure test).
+  9-21-dashboard-ux-clarity-audit: done # Implemented 2026-03-15: page-by-page audit (59 findings: 13 P0, 42 P1, 4 P2), InfoTooltip component, all P0+P1 items implemented across 15 files. Code review #2 completed 2026-03-15: fixed 3 MEDIUM (findings doc summary counts, InfoTooltip generic aria-label, MatchesPage HTML entities), 2 LOW noted.
+  epic-9-retrospective: done
 
   # EPIC 10: Model-Driven Exits & Advanced Execution (Phase 1)
   epic-10: backlog
@@ -191,10 +214,14 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
-# Total Stories: 71 (2 dropped in Epic 6.5)
-# Epics done: 12 (Epics 1-8, 4.5, 5.5, 6.5, 7.5)
-# Stories done: 65 (all done stories through Epic 8)
+# Total Stories: 93 (2 dropped in Epic 6.5, +2 tech debt stories 9-0-1/9-0-2, +2 course correction 9-1a/9-1b, +1 course correction 9-5, +1 course correction 9-6, +1 course correction 9-7, +1 course correction 9-8, +1 course correction 9-4a, +1 course correction 9-9, +5 course correction 9-10/9-11/9-12/9-13/9-14 dashboard UX overhaul, +4 course correction 9-15/9-16/9-17/9-18 production defect fixes, +3 course correction 9-19/9-20/9-21 VWAP consolidation/staleness/UX audit)
+# Epics done: 13 (Epics 1-9, 4.5, 5.5, 6.5, 7.5)
+# Epics in-progress: 0
+# Stories done: 93 (all done stories through Epic 9-21)
+# Stories in-review: 0
+# Stories backlog: 4 (Epic 10: 10-1, 10-2, 10-3, 10-4)
+# Stories ready-for-dev: 0
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
-# Retrospectives done: 12 (Epics 1-8, 4.5, 5.5, 7.5)
+# Retrospectives done: 13 (Epics 1-9, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# NEXT: Pre-Epic 9 Tech Debt Sprint (3-day budget: branded types, calibration persistence, Zod boundary schemas) → Epic 9 (Advanced Risk & Portfolio Management)
+# CURRENT: Epic 9 done (2026-03-15). Pre-Epic 10 preparation: WebSocket subscriptions, carry-forward debt triage, architecture review.

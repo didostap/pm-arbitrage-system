@@ -632,9 +632,9 @@ The journey from "supervised tool" (Month 1) to "trusted infrastructure" (Month 
 - Color-coded (green = fine, yellow = attention, red = action) with consistent iconography
 - Muscle memory: operator lands on dashboard, eyes go to top-left health composite immediately
 
-**Implementation:** Persistent header component showing composite health status (API connectivity + execution engine + data feeds + platform health), updates via WebSocket.
+**Implementation:** Navigation moved to a collapsible left sidebar (shadcn/ui Sidebar component) — scales to future pages without overflow. Persistent TopBar component above main content (to the right of the left sidebar) showing composite health status (API connectivity + execution engine + data feeds + platform health), updates via WebSocket.
 
-**Platform Mode Badges:** Each platform tile in the header health bar displays a mode badge:
+**Platform Mode Badges:** Each platform tile in the TopBar health indicator displays a mode badge:
 - **LIVE** — green badge, normal operation
 - **PAPER** — amber badge with dotted border, paper trading active
 

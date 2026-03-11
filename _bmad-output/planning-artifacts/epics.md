@@ -163,6 +163,7 @@ FR-AD-04: Epic 3 - Manual contract match approval
 FR-AD-05: Epic 8 - NLP confidence scoring
 FR-AD-06: Epic 8 - Auto-approve/queue by confidence
 FR-AD-07: Epic 8 - Knowledge base accumulation
+FR-AD-08: Epic 9 - Resolution date gating & annualized return threshold
 FR-EX-01: Epic 5 - Near-simultaneous leg submission
 FR-EX-02: Epic 5 - Liquid leg first execution
 FR-EX-03: Epic 5 - Order book depth verification
@@ -2346,12 +2347,12 @@ So that LLM API calls are not wasted on garbage candidates, the match review que
 **Problem A (text length inconsistency) decision gate:** Only pursue description normalization if the post-fix analysis shows remaining garbage matches where description asymmetry is a contributing factor. If numbers are clean after B0+B1+B2, skip entirely.
 
 ### Epic 9: Advanced Risk & Portfolio Management (Phase 1)
-System provides correlation-aware position sizing, dynamic cluster limits, confidence-adjusted sizing, and Monte Carlo stress testing.
-**FRs covered:** FR-RM-05, FR-RM-06, FR-RM-07, FR-RM-08, FR-RM-09
+System provides correlation-aware position sizing, dynamic cluster limits, confidence-adjusted sizing, capital efficiency gating, and Monte Carlo stress testing.
+**FRs covered:** FR-AD-08, FR-RM-05, FR-RM-06, FR-RM-07, FR-RM-08, FR-RM-09
 
 ## Epic 9: Advanced Risk & Portfolio Management (Phase 1)
 
-System provides correlation-aware position sizing, dynamic cluster limits, confidence-adjusted sizing, and Monte Carlo stress testing.
+System provides correlation-aware position sizing, dynamic cluster limits, confidence-adjusted sizing, capital efficiency gating, and Monte Carlo stress testing.
 
 ### Story 9.1: Correlation Cluster Tracking & Exposure Calculation
 
@@ -2370,6 +2371,56 @@ So that I'm not unknowingly concentrated in a single risk factor.
 **When** they override via `POST /api/risk/cluster-override`
 **Then** the override is logged to audit trail with rationale
 **And** exposure calculations use the overridden cluster
+
+### Story 9.1a: Kalshi Fixed-Point API Migration (Course Correction 2026-03-12)
+
+As an operator,
+I want the Kalshi connector updated to use the new fixed-point API response format,
+So that order book data flows and trade execution are restored after Kalshi's 2026-03-12 migration removed all legacy integer fields.
+
+**Acceptance Criteria:**
+
+**Given** Kalshi's REST API now returns `orderbook_fp` with `yes_dollars`/`no_dollars` string arrays instead of `orderbook` with `yes`/`no` integer arrays
+**When** the system fetches order book data via `getOrderBook()`
+**Then** the response is parsed correctly using the new field names and string types
+**And** prices (already in dollars) are not double-divided by 100
+**And** the `NormalizedOrderBook` output is identical in shape to pre-migration
+
+**Given** Kalshi's WebSocket now sends `yes_dollars_fp`/`no_dollars_fp` in snapshots and `price_dollars`/`delta_fp` in deltas (all strings)
+**When** the WebSocket client receives orderbook messages
+**Then** snapshots and deltas are parsed and applied correctly
+**And** local orderbook state is maintained with string-based price levels
+
+**Given** the Zod validation schemas and TypeScript interfaces reference old field names
+**When** a Kalshi API response or WebSocket message arrives
+**Then** all schemas validate against the new fixed-point field names and string types
+
+**Context:** Kalshi completed their Fixed-Point Migration on 2026-03-12, removing all legacy integer-based fields. 6 files affected: kalshi.connector.ts, kalshi-response.schema.ts, kalshi.types.ts, kalshi-websocket.client.ts, kalshi-price.util.ts, kalshi-price.util.spec.ts.
+
+### Story 9.1b: Orderbook Staleness Detection & Alerting (Course Correction 2026-03-12)
+
+As an operator,
+I want the system to detect when a platform stops providing valid order book data and alert me immediately via Telegram,
+So that I can take corrective action without delay when an API issue occurs.
+
+**Acceptance Criteria:**
+
+**Given** a platform's order book data has not been successfully refreshed within a configurable staleness threshold (default: 90 seconds)
+**When** the staleness check runs
+**Then** a `platform.orderbook.stale` event is emitted with platform ID, last successful update timestamp, and staleness duration
+**And** a Telegram alert is sent with actionable context
+
+**Given** a platform's order book was stale but fresh data resumes
+**When** the next successful order book update is received
+**Then** a `platform.orderbook.recovered` event is emitted
+**And** a Telegram recovery notification is sent
+
+**Given** a platform's order book is stale
+**When** the arbitrage detection cycle runs
+**Then** opportunities involving the stale platform are suppressed
+**And** the suppression reason is logged
+
+**Context:** The Kalshi FP migration breakage (Story 9-1a) was discovered manually via debugging — no automated alert fired. This story closes that observability gap. Builds on existing platform health infrastructure (FR-DI-03, FR-DI-04, NFR-R4).
 
 ### Story 9.2: Correlation Limit Enforcement & Triage Recommendations
 
@@ -2426,6 +2477,78 @@ So that I can validate my risk parameters aren't calibrated too loosely.
 **Given** stress test results indicate risk parameters are too loose
 **When** probability of >20% drawdown exceeds 5%
 **Then** an alert is emitted recommending parameter tightening with specific suggestions
+
+### Story 9.5: Capital Efficiency Gating & Resolution Date Filtering (Course Correction 2026-03-13)
+
+As an operator,
+I want the system to reject opportunities that lack a known resolution date or whose annualized return doesn't justify the capital lockup,
+So that my capital is only deployed in trades with favorable time-value economics.
+
+**Acceptance Criteria:**
+
+**Given** an opportunity passes the net edge threshold (FR-AD-03, ≥0.8%)
+**When** the contract match has no resolution date (null)
+**Then** the opportunity is rejected before risk validation
+**And** an `OpportunityFilteredEvent` is emitted with reason: "no resolution date"
+**And** the rejection is logged with pair ID and contract descriptions
+
+**Given** an opportunity has a known resolution date
+**When** the annualized net return is calculated as: `(net_edge / capital_per_unit) × (365 / days_to_resolution)`
+**And** the result is below the configurable minimum (default: 15%)
+**Then** the opportunity is rejected before risk validation (FR-AD-08)
+**And** an `OpportunityFilteredEvent` is emitted with reason: "annualized return {calculated}% below {threshold}% minimum"
+**And** the rejection is logged with calculated annualized return, days to resolution, and threshold
+
+**Given** an opportunity has a resolution date and meets the annualized return threshold
+**When** the capital efficiency check passes
+**Then** the opportunity proceeds to risk validation unchanged
+**And** the annualized return is included in the enriched opportunity context for downstream logging and dashboard display
+
+**Given** the capital efficiency gate configuration
+**When** the engine starts
+**Then** `MIN_ANNUALIZED_RETURN` is loaded from env config (default: 0.15)
+**And** invalid values (negative, >10.0) are rejected at startup
+**And** the threshold is logged at startup for operator awareness
+
+**Context:** Discovered during Sprint 9 paper trading. A position on "Will OpenAI or Anthropic IPO first?" had no resolution date and locked ~$50 capital for TP: +$0.23 vs SL: -$8.15. The system's only quality gate (FR-AD-03, 0.8% net edge) passed the opportunity because it doesn't evaluate time-value of capital. See sprint-change-proposal-2026-03-13.md for full analysis.
+
+### Story 9.7: Matches Page Redesign & Data Alignment (Course Correction 2026-03-13)
+
+As an operator,
+I want the dashboard matches page redesigned as a proper table with all contract match fields visible, separate status views, cluster filtering, and a match detail page,
+So that I can efficiently review, filter, and inspect contract matches with full operational context including cluster assignments, resolution dates, and trading activity.
+
+**Acceptance Criteria:**
+
+**Given** the `contract_matches` table has 22 fields including cluster, resolution date, categories, primary leg, and trading activity
+**When** the operator views the matches page
+**Then** all fields are accessible — key columns in the table view, full record on the detail page
+**And** the card-based layout is replaced with a structured table
+
+**Given** the operator wants to view matches by approval status
+**When** they navigate the matches page
+**Then** Pending, Approved, and All are presented as separate tabbed views (not a single consolidated list)
+
+**Given** the operator wants to filter by correlation cluster
+**When** they select a cluster from the filter dropdown
+**Then** the table shows only matches belonging to that cluster
+**And** the filter works across all status tabs
+
+**Given** the operator clicks on a match row in the table
+**When** the detail page loads at `/matches/:id`
+**Then** the full record is displayed with all fields organized in sections: contract pair details, resolution data, trading activity, operator review status
+
+**Given** Epic 8 (semantic matching) is complete
+**When** the matches page renders
+**Then** no dead code references Epic 8 as future work (e.g., "Knowledge Base: Coming in Epic 8")
+**And** the deleted `MatchCard` component is replaced by table rows
+
+**Given** the backend DTO is updated
+**When** the API returns match data
+**Then** `MatchSummaryDto` includes all 8 previously missing fields: `polymarketRawCategory`, `kalshiRawCategory`, `firstTradedTimestamp`, `totalCyclesTraded`, `primaryLeg`, `resolutionDate`, `resolutionCriteriaHash`, and resolved `cluster` object
+**And** the generated API client is regenerated to reflect the updated types
+
+**Context:** The matches page was built in Epic 7 (Story 7-3) and hasn't been updated to reflect fields added in Epics 8 and 9. Eight database fields — including operationally critical cluster assignment, resolution date, and trading activity — are invisible to the operator. See sprint-change-proposal-2026-03-13b.md for full analysis.
 
 ### Epic 10: Model-Driven Exits & Advanced Execution (Phase 1)
 System continuously recalculates edge and triggers exits on five criteria, plus adapts leg sequencing and auto-manages single-leg exposure.
