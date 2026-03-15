@@ -191,12 +191,19 @@ development_status:
   epic-9-retrospective: done
 
   # EPIC 10: Model-Driven Exits & Advanced Execution (Phase 1)
-  epic-10: backlog
-  10-1-continuous-edge-recalculation: backlog
-  10-2-five-criteria-model-driven-exit-logic: backlog
-  10-3-automatic-single-leg-management: backlog
-  10-4-adaptive-leg-sequencing: backlog
-  epic-10-retrospective: optional
+  # Pre-Epic 10 Tech Debt & Architecture Sprint (from Epic 9 retro action items)
+  # Capacity Budget (Agreement #22): 7 base stories, expect 9-11 total with 30-40% correction buffer
+  epic-10: done
+  10-0-1-websocket-subscription-establishment-divergence-monitoring: done # Critical path: blocks 10.1. IPlatformConnector.subscribeToContracts(), both connectors, divergence detection, dashboard health indicator. Code review completed 2026-03-15: fixed 5 CRITICAL (dead gateway handler, untested divergence wiring, false alerts from empty books, paper rehydration gap, missing pendingSubscription guard), 8 HIGH (stale SID, branded type casts, missing test coverage), 8 MEDIUM (private visibility, hasInitialSubscription reset, Decimal threshold, Telegram formatter, dead code).
+  10-0-2b-outcome-direction-matching-validation: done # Implemented 2026-03-15: OutcomeToken interface, Polymarket outcomes parsing, Kalshi yes_sub_title extraction, post-scoring direction validation gate with self-correction, Prisma migration, audit CLI with UFC mis-match cleanup, dashboard outcome labels. 42 new tests (2217 total). Code review #2 completed 2026-03-15: fixed 1 HIGH (complementary price check AC 8), 5 MEDIUM (shared threshold constant, LLM retry backoff, file list gaps, dashboard normalize).
+  10-0-2a-validate-position-mode-awareness: done # Implemented 2026-03-16: mode-aware validatePosition/isTradingHalted/getCurrentExposure using getState(isPaper), trading engine passes isPaper, stale halt auto-recovery on clean reconciliation, +20 tests (2221→2241). Code review #2 completed 2026-03-16: fixed 3 MEDIUM (stale haltReasons from DB, sprint status count, incomplete gateway halt reasons), 3 LOW noted. Also: trading halt indicator added to dashboard TopBar (DashboardOverviewDto + WS event + red badge).
+  10-0-2-carry-forward-debt-triage-critical-fixes: done # Implemented 2026-03-16: triage doc (28 items), SingleLegContext refactor (17→1 param), realizedPnl DB persistence (3 close paths), resolutionDate YAML+approval support, dashboard display. +11 tests (2241→2252). Code review #2 completed 2026-03-16: fixed 3 MEDIUM (realizedPnl dead code moved to ExitSection, missing computeRealizedPnl fallback in detail endpoint, unchanged check missing resolutionDate), 1 LOW (null-clearing test).
+  10-0-3-exit-monitor-architecture-review: done # Spike: ThresholdEvaluatorService refactor sketch for five-criteria model. Design document completed 2026-03-16: five-criteria composition (independent eval + priority trigger), shadow mode strategy pattern, WS data source + polling cadence, stateless evaluator with caller-provided inputs, 11 config keys defined. Lad MCP code review completed: fixed liquidity formula, div-by-zero guards, edge ranking clarification, shadow log optimization. Dev Agent CR completed 2026-03-16: fixed 4 MEDIUM (performance budget risk row, dense ranking pseudocode, dashboard enrichment data flow §5.6, shadow P&L counterfactual semantics), 3 LOW (appendix payload consistency, sprint-status comment, confidence guard description).
+  10-1-continuous-edge-recalculation: done # Implemented 2026-03-16: WS freshness tracking, data source classification, recalculated net edge with gas, Prisma persistence, PlatformDataFallbackEvent, OrderFilledEvent CF-4, dashboard backend. +20 tests (2228→2273, includes 25 pre-existing fixes). Code review #1: 2 issues fixed (gas cost, dual-platform staleness). Post-deploy bug fix: is_paper filter + early resumeTrading. Code review #2 completed 2026-03-16: fixed 6 MEDIUM (Decimal persistence, gas fraction denominator, lastWsUpdateMap leak, dataFreshnessMs gap, single-leg CF-4, duplicate task), 2 LOW (reconciliation CF-4, test assertions). 2274 tests. Task 8 (frontend) deferred.
+  10-2-five-criteria-model-driven-exit-logic: done # Implemented 2026-03-21: six-criteria evaluator (C1-C6 with profit_capture), EXIT_MODE config, shadow mode comparison service, Prisma migration, dashboard criteria display, +33 tests (2274→2307). Code review #1 completed: fixed 2 issues (@OnEvent, @Cron). Code review #2 completed 2026-03-21: fixed 9 issues (dense ranking bug, handlePositionClose wiring, monitoring/telegram/gateway shadow integrations, 5 skipped integration tests unskipped+fixed, unsafe type cast, ShadowDailySummaryEvent class, stale comments). Code review #3 completed 2026-03-21: fixed 15 issues (CRITICAL shadow mode inversion — fixed now primary, null ranking C4 false triggers, C5 liquidity trigger threshold, exitType enum, shadow summary semantics, env schema constraints, type safety, memory cap, PerformancePage shadow table, e2e test field renames). 2321 tests.
+  10-3-automatic-single-leg-management: done # Implemented 2026-03-21: event-driven AutoUnwindService, config guards, loss estimation, closeLeg reuse, monitoring/telegram/CSV/dashboard integration, 46 tests (2321→2367). Code review completed 2026-03-21: fixed 9 PATCH (CRITICAL .abs() masking profitable closes, pair/clobTokenId null guards, configService boolean defense, mapSingleLegAlert autoUnwindAttempted flag, MAX_LOSS_PCT=0 test, AUTO_UNWIND→CRITICAL severity, delay max bound, WS naming convention), 1 INTENT_GAP (subsystem verification design comment), 1 BAD_SPEC (string vs Decimal in PartialSingleLegContext). Backend DTO fixes: +4 flat capital fields on DashboardOverviewDto, +exitMode/exitCriteria/closestCriterion/closestProximity on PositionFullDetailDto, +details on AuditEventDto, +auto-unwind fields on AlertSummaryDto. Frontend casts removed. 2369 tests.
+  10-4-adaptive-leg-sequencing: done # Implemented 2026-03-21: unified sizing formula (capital conservation fix), adaptive P95 latency-based sequencing, data source classification, executionMetadata JSON persistence, Polymarket poll configurability+jitter, dashboard Execution Info section, +40 unit tests (2369→2409), +5 E2E tests.
+  epic-10-retrospective: done # Completed 2026-03-22. Key insights: disciplines into deliverables (Agreement #24), story sizing as integration risk indicator (#25), structural guards over review vigilance (#26). Three recurring defect classes identified (event wiring 44%, collection leaks 33%, mode contamination 22%). Pre-Epic 11 stories defined: 11-0-1 (event wiring guards), 11-0-2 (isPaper inventory), 11-0-3 (secrets spike), 11-0-4 (CLAUDE.md updates).
 
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
   epic-11: backlog
@@ -214,14 +221,14 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
-# Total Stories: 93 (2 dropped in Epic 6.5, +2 tech debt stories 9-0-1/9-0-2, +2 course correction 9-1a/9-1b, +1 course correction 9-5, +1 course correction 9-6, +1 course correction 9-7, +1 course correction 9-8, +1 course correction 9-4a, +1 course correction 9-9, +5 course correction 9-10/9-11/9-12/9-13/9-14 dashboard UX overhaul, +4 course correction 9-15/9-16/9-17/9-18 production defect fixes, +3 course correction 9-19/9-20/9-21 VWAP consolidation/staleness/UX audit)
-# Epics done: 13 (Epics 1-9, 4.5, 5.5, 6.5, 7.5)
+# Total Stories: 112 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b)
+# Epics done: 14 (Epics 1-10, 4.5, 5.5, 7.5)
 # Epics in-progress: 0
-# Stories done: 93 (all done stories through Epic 9-21)
+# Stories done: 112 (all done stories through Epic 10-4)
 # Stories in-review: 0
-# Stories backlog: 4 (Epic 10: 10-1, 10-2, 10-3, 10-4)
 # Stories ready-for-dev: 0
+# Stories backlog: 6 (Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
-# Retrospectives done: 13 (Epics 1-9, 4.5, 5.5, 7.5)
+# Retrospectives done: 14 (Epics 1-10, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 9 done (2026-03-15). Pre-Epic 10 preparation: WebSocket subscriptions, carry-forward debt triage, architecture review.
+# CURRENT: Epic 10 complete. Next: Epic 11 pre-epic stories (11-0-1 through 11-0-4) then feature stories. Capacity budget: 7-8 base, expect 10-12 total with 30-40% correction buffer.

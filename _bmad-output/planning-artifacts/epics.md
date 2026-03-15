@@ -2558,6 +2558,104 @@ System continuously recalculates edge and triggers exits on five criteria, plus 
 
 System continuously recalculates edge and triggers exits on five criteria, plus adapts leg sequencing and auto-manages single-leg exposure.
 
+**Capacity Budget (Team Agreement #22):** 4 planned feature stories + 3 pre-epic stories = 7 base. Budget 30-40% for internal corrections → expect 9-11 total stories.
+
+**Architecture Decision (Epic 9 Retro):** Retrofit, don't rethink. Trading cycle stays poll-based (entry decisions). Exit monitor gets WebSocket real-time feed (exit decisions). Two data paths, one architecture. Divergence monitoring required (Team Agreement #23).
+
+**Critical Prerequisites (must complete before feature stories):**
+- WebSocket subscription establishment (10-0-1) — blocks 10.1
+- Carry-forward debt resolution (10-0-2) — blocks 10.2 (resolutionDate, realizedPnl) and 10.3 (SingleLegContext)
+- Exit monitor architecture review (10-0-3) — informs 10.1/10.2 implementation approach
+
+### Story 10-0-1: WebSocket Subscription Establishment & Divergence Monitoring
+
+As an operator,
+I want WebSocket connections to actually subscribe to contract tickers and divergence between poll and WebSocket data paths to be monitored,
+So that exit decisions can use real-time data and I'm alerted when data paths drift apart.
+
+**Context:** Epic 9 story 9-20 discovered WebSocket connections exist but no tickers are subscribed. Data only flows during polling cycles. This story establishes the subscription mechanism and divergence detection required by the dual data path architecture.
+
+**Acceptance Criteria:**
+
+**Given** the `IPlatformConnector` interface
+**When** this story is implemented
+**Then** a new method `subscribeToContracts(contractIds: ContractId[])` is added to the interface
+**And** both Kalshi and Polymarket connectors implement the method
+**And** the exit monitor subscribes to tickers for all open positions
+
+**Given** WebSocket subscriptions are active
+**When** both poll and WebSocket data arrive for the same contract
+**Then** divergence is measured (price delta, staleness delta)
+**And** divergence exceeding configurable threshold emits `platform.data.divergence` event
+**And** divergence metrics are available on the dashboard health view (Team Agreement #18: vertical slice)
+
+**Given** the data path contract
+**When** the system operates
+**Then** polling is authoritative for entry decisions (detection pipeline)
+**And** WebSocket is authoritative for exit decisions (exit monitor)
+**And** this contract is documented and enforced at the architectural level
+
+**Tech Debt Note (from Story 9-20):** Post-ingestion `publishHealth()` call was the immediate fix. This story builds the proper subscription mechanism on top of that foundation.
+
+### Story 10-0-2: Carry-Forward Debt Triage & Critical Fixes
+
+As an operator,
+I want carry-forward tech debt items that directly impact Epic 10 stories resolved before feature development begins,
+So that feature stories don't hit known blockers mid-implementation.
+
+**Context:** Epic 9 retro identified 28 tech debt items (8 new + 20 carry-forward). Three directly block Epic 10 feature stories.
+
+**Acceptance Criteria:**
+
+**Given** the 28 tech debt items from the Epic 9 retro
+**When** this story is implemented
+**Then** every item has an explicit disposition: address now, address during Epic 10, carry forward, or close — with rationale
+
+**Given** tech debt item #1 (`handleSingleLeg` 16-param → `SingleLegContext` interface, from Epic 5.5)
+**When** this story is implemented
+**Then** `handleSingleLeg` accepts a `SingleLegContext` object instead of 16 positional parameters
+**And** all call sites are updated
+**And** this unblocks Story 10.3 (Automatic Single-Leg Management)
+
+**Given** tech debt item #3 (`realizedPnl` column on OpenPosition, from Epic 6)
+**When** this story is implemented
+**Then** a `realized_pnl` column exists on the `open_positions` table (Prisma migration)
+**And** realized P&L is populated when positions are closed
+**And** this unblocks Story 10.2 criterion tracking
+
+**Given** tech debt item #5 (`resolutionDate` has no write path, from Epic 5)
+**When** this story is implemented
+**Then** `resolution_date` is populated from platform API data during contract match creation or update
+**And** time-based exit logic (Story 10.2 criterion #3) has functional input data
+
+**Given** the full triage is complete
+**When** results are reviewed
+**Then** a triage document exists with all 28 items categorized and rationale provided
+
+### Story 10-0-3: Exit Monitor Architecture Review (Spike)
+
+As an operator,
+I want the ThresholdEvaluatorService refactor sketched out before implementing the five-criteria model,
+So that the implementation approach is validated before code is written.
+
+**Context:** The current ThresholdEvaluatorService handles fixed-threshold exits (take-profit, stop-loss, pre-resolution). Story 10.2 expands this to five criteria with shadow mode. This spike produces a design sketch, not implementation.
+
+**Acceptance Criteria:**
+
+**Given** the current ThresholdEvaluatorService architecture
+**When** this spike is completed
+**Then** a design document exists covering:
+- How the five criteria compose (independent evaluation, priority ordering, or weighted)
+- How shadow mode comparison works (both modes evaluate, one executes, diff logged)
+- How the WebSocket data path (from 10-0-1) feeds into continuous recalculation
+- Which criteria need new data sources (model confidence changes, liquidity snapshots)
+- Interface changes needed for ExitMonitorService
+
+**Given** this is a spike
+**When** scope is evaluated
+**Then** no production code is written — output is a design document reviewed by the team
+**And** the spike follows the investigation-first pattern (Team Agreement from retro)
+
 ### Story 10.1: Continuous Edge Recalculation
 
 As an operator,
@@ -2569,7 +2667,21 @@ So that exit decisions are based on current reality, not stale entry-time assump
 **Given** a position is open
 **When** the exit monitor evaluates it each cycle
 **Then** expected edge is recalculated based on: current fee schedules, live liquidity depth at exit prices, updated gas estimates, and time to resolution (FR-EM-02)
+**And** recalculation uses WebSocket price feed (authoritative for exit decisions, per 10-0-1 data path contract) with polling fallback
 **And** recalculated edge is persisted and available to the dashboard
+
+**Given** continuous recalculation is active
+**When** the dashboard displays open positions
+**Then** each position shows: current recalculated edge, edge delta since entry, last recalculation timestamp, and data source indicator (WebSocket/polling fallback) (Team Agreement #18: vertical slice minimum)
+
+**Given** WebSocket data is unavailable for a position
+**When** the exit monitor recalculates
+**Then** polling data is used as fallback
+**And** the position is flagged with a data staleness indicator on the dashboard
+**And** a `platform.data.fallback` event is emitted
+
+**Dependencies:** Story 10-0-1 (WebSocket subscriptions), Story 10-0-3 (architecture review output)
+**Vertical Slice:** Dashboard position view shows recalculated edge, delta, data source
 
 ### Story 10.2: Five-Criteria Model-Driven Exit Logic
 
@@ -2584,9 +2696,10 @@ So that more edge is captured and losses are cut more precisely.
 **Then** an exit is triggered (FR-EM-03):
 1. **Edge evaporation:** Recalculated edge drops below breakeven after costs
 2. **Model update:** Confidence score for the contract match has decreased below threshold
-3. **Time decay:** Expected value diminishes as resolution approaches (configurable decay curve)
+3. **Time decay:** Expected value diminishes as resolution approaches (configurable decay curve) — requires `resolutionDate` write path (resolved in 10-0-2)
 4. **Risk budget breach:** Portfolio-level risk limit is approached and this position has lowest remaining edge
 5. **Liquidity deterioration:** Order book depth at exit prices drops below minimum executable threshold
+**And** realized P&L is tracked per position using `realized_pnl` column (resolved in 10-0-2)
 
 **Given** model-driven exits are active
 **When** the system is configured
@@ -2597,6 +2710,27 @@ So that more edge is captured and losses are cut more precisely.
 **When** an exit occurs (by either mode)
 **Then** a daily comparison summary is logged showing: "fixed would have exited at X with P&L Y, model would have exited at Z with P&L W, actual edge captured"
 **And** this comparison data is available in the dashboard performance view for building confidence in the switch
+
+**Given** the dashboard displays positions
+**When** model-driven exits are active (or shadow mode)
+**Then** each position shows: which criterion is closest to triggering, proximity percentage per criterion, and exit mode indicator (fixed/model/shadow) (Team Agreement #18: vertical slice minimum)
+
+**Given** shadow mode generates comparison data
+**When** the operator views the performance page
+**Then** a shadow mode comparison table shows per-exit: trigger criterion, fixed vs model timing, P&L delta, and cumulative advantage/disadvantage
+
+**Given** paper trading mode is active
+**When** model-driven exits evaluate
+**Then** paper mode uses simulated fill prices (no platform API verification of fills)
+**And** live mode uses real platform API verification
+**And** both paths have explicit test coverage (Team Agreement #20: paper/live boundary)
+
+**Given** tests are written for this story
+**When** internal subsystems are validated
+**Then** tests verify that recalculated edge data actually arrives from the WebSocket/polling path — not just that the criterion evaluation logic handles it correctly (Team Agreement #19: internal subsystem verification)
+
+**Dependencies:** Story 10-0-1 (WebSocket data feed), Story 10-0-2 (resolutionDate write path, realizedPnl column), Story 10-0-3 (architecture review — five-criteria composition design)
+**Vertical Slice:** Exit criteria proximity display, shadow mode comparison table, exit mode indicator
 
 ### Story 10.3: Automatic Single-Leg Management
 
@@ -2612,6 +2746,30 @@ So that I don't need to be available for every single-leg event.
 **And** if unwind succeeds, the position is closed with loss logged
 **And** if unwind fails, the position remains in "single_leg_exposed" for operator resolution (fallback to MVP workflow from Story 5.2/5.3)
 **And** an `AutoUnwindEvent` is emitted with action taken and result
+
+**Given** the `handleSingleLeg` function
+**When** this story is implemented
+**Then** it accepts a `SingleLegContext` interface (resolved in 10-0-2) instead of positional parameters
+**And** the `AutoUnwindEvent` payload includes full `SingleLegContext` for audit trail completeness
+
+**Given** paper trading mode is active
+**When** a single-leg event occurs
+**Then** the auto-unwind uses simulated fills (paper mode cannot verify against real platform APIs — simulated fills don't exist on platforms)
+**And** the unwind result is marked as `simulated: true` in the event payload and audit log
+**And** live mode uses real platform API order submission for unwind
+**And** both paths have explicit test coverage with dedicated `paper-live-boundary` tests (Team Agreement #20)
+
+**Given** auto-unwind is attempted (paper or live)
+**When** the dashboard displays single-leg events
+**Then** each event shows: auto-unwind attempted (yes/no), action taken (close/hedge/fallback), result (success/fail/simulated), loss amount, and time elapsed (Team Agreement #18: vertical slice minimum)
+
+**Given** tests validate auto-unwind behavior
+**When** internal subsystems interact
+**Then** tests verify the unwind order actually reaches the connector (not just that the management logic makes the right decision) (Team Agreement #19: internal subsystem verification)
+
+**Dependencies:** Story 10-0-2 (SingleLegContext refactor)
+**Vertical Slice:** Single-leg event detail view with auto-unwind status, action, result, and loss
+**Tech Debt Note (from Epic 5.5):** `handleSingleLeg` 16-param signature is resolved in 10-0-2. This story builds on the clean interface.
 
 ### Story 10.4: Adaptive Leg Sequencing & Matched-Count Execution
 
@@ -2644,6 +2802,23 @@ _(Added: Story 6.5.5b identified that the MVP model computes leg sizes independe
 **Then** the full reservation is released cleanly (no single-leg exposure possible)
 **And** this eliminates the MVP constraint where primary is submitted before secondary depth is known
 
+**Given** adaptive sequencing makes a decision
+**When** the dashboard displays recent executions
+**Then** each execution shows: which platform went first, latency measurements for both platforms, sequencing reason (latency override / static config), and matched contract count vs ideal count (Team Agreement #18: vertical slice minimum)
+
+**Given** both poll and WebSocket data paths are active
+**When** execution uses depth data for pre-flight verification
+**Then** depth data source is logged (poll vs WebSocket) per execution
+**And** if poll and WebSocket depth diverge beyond threshold, the more conservative (lower) depth is used
+**And** divergence is emitted as `platform.data.divergence` event (Team Agreement #23: two-data-path divergence monitoring)
+
+**Given** tests validate execution flow
+**When** depth verification and order submission are tested
+**Then** tests verify orders actually reach the connector (not just that sizing logic produces correct values) (Team Agreement #19: internal subsystem verification)
+
+**Dependencies:** Story 10-0-1 (WebSocket subscriptions for depth data path)
+**Vertical Slice:** Execution detail view with sequencing decision, latency, matched vs ideal count, data source
+
 **Tech Debt Note (from Story 6.5.0 code review, Finding #7):** `polymarket.connector.ts` has hardcoded `ORDER_POLL_TIMEOUT_MS` and `ORDER_POLL_INTERVAL_MS` with no exponential backoff or jitter. When implementing Story 10.4, make these timeouts configurable via `@nestjs/config` and add jitter to the polling loop.
 
 **Tech Debt Note (from Story 6.5.5b):** The MVP depth-aware sizing model computes primary and secondary ideal sizes independently (`reservedCapitalUsd / legPrice`), producing different contract counts. With asymmetric depth capping this divergence can widen, creating directional exposure rather than hedged arbitrage. This story's matched-count execution eliminates that limitation.
@@ -2675,6 +2850,8 @@ So that expanding to a third venue is a contained implementation effort.
 **Then** the work focuses on: ensuring dynamic connector registration, verifying no core module has hardcoded Kalshi/Polymarket references outside of `connectors/`, and documenting the extension pattern
 
 **Tech Debt Note (from Story 6.5.0 code review, Finding #11):** `polymarket.connector.ts` `postOrder` response uses blind `as Record<string, unknown>` casting without runtime validation. When implementing Story 11.1's connector plugin architecture, add runtime validation (e.g., Zod schemas) for all external API response types to prevent undefined order IDs and orphaned orders.
+
+**Interface Note (from Epic 10):** By the time this story is implemented, `IPlatformConnector` will include `subscribeToContracts()` and `unsubscribeFromContracts()` (added in Story 10-0-1). The connector plugin documentation must cover WebSocket subscription implementation requirements in addition to the original REST/polling methods.
 
 ### Story 11.2: External Secrets Management Integration
 

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       bmad-method:
-        specifier: 6.0.0-Beta.8
-        version: 6.0.0-Beta.8
+        specifier: 6.2.0
+        version: 6.2.0
 
 packages:
 
@@ -55,8 +55,8 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
-  bmad-method@6.0.0-Beta.8:
-    resolution: {integrity: sha512-vsESQtZr0BJ68k3AxAiktPiGNxA/ULPpssC9hgZJlVHWqH4b6e+xOKt4/yEnGXyWnTrcwXNGXu2tUrET2T2PcA==}
+  bmad-method@6.2.0:
+    resolution: {integrity: sha512-JmzQgccHgQv8twuqU3vPBOnLN5lnFuW+qPGGgtYHa5lqQib9xJGlByZ1DsU5kOOMuxc4aYo1Fpcu6SB+qMqjgQ==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -410,7 +410,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  bmad-method@6.0.0-Beta.8:
+  bmad-method@6.2.0:
     dependencies:
       '@clack/core': 1.0.1
       '@clack/prompts': 1.0.1

@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bmad-method": "6.0.0-Beta.8"
+    "bmad-method": "6.2.0"
   }
 }
