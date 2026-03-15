@@ -159,6 +159,7 @@ All 5 categories decided — data architecture, security, communication patterns
 **Internal Module Communication:** Hybrid pattern — synchronous DI injection for the execution hot path, EventEmitter2 for observability fan-out.
 - **Hot path (synchronous):** Detection → Risk validation → Execution. `detectionService.onOpportunity()` → `riskManager.validatePosition()` → `executionEngine.execute()`. Blocking is correct — never execute without risk validation completing.
 - **Fan-out (async EventEmitter2):** Every module emits domain events (`OrderFilled`, `SingleLegExposure`, `LimitApproached`, `OpportunityIdentified`, etc.) that Monitoring subscribes to for dashboard updates, Telegram alerts, audit logging, and CSV exports. Telegram API timeout never delays the next execution cycle.
+- **Dual data path (Epic 10):** Polling is authoritative for entry decisions (detection pipeline). WebSocket is authoritative for exit decisions (exit monitor continuous recalculation). Two data paths, one architecture — retrofit, don't rethink. Divergence monitoring between poll and WebSocket data is required: when paths drift beyond configurable threshold, `platform.data.divergence` event is emitted with alerting (Team Agreement #23). The more conservative data is used for safety-critical decisions (depth verification, exit pricing).
 
 **Dashboard API:** REST endpoints (flat structure) + NestJS WebSocket gateway.
 - REST: `/api/health`, `/api/positions`, `/api/positions/:id`, `/api/alerts`, `/api/matches/pending`, `/api/matches/:id/approve`, `/api/matches/:id/reject`, `/api/performance/weekly`, `/api/performance/daily`, `/api/compliance/export`, `/api/knowledge-base/calibration` (GET latest, POST trigger), `/api/knowledge-base/calibration/history` (GET with `?limit`). No deep nesting.
@@ -190,6 +191,9 @@ interface IPlatformConnector {
   connect(): Promise<void>
   disconnect(): Promise<void>
   onOrderBookUpdate(callback: (book: NormalizedOrderBook) => void): void
+  // Epic 10 — WebSocket subscription for exit monitor real-time feed
+  subscribeToContracts(contractIds: ContractId[]): Promise<void>
+  unsubscribeFromContracts(contractIds: ContractId[]): Promise<void>
 }
 ```
 
@@ -625,22 +629,31 @@ Platform APIs (Kalshi WS, Polymarket REST/Chain)
     ↓
 connectors/ (normalize to IPlatformConnector interface)
     ↓
-core/trading-engine (orchestrates the polling cycle)
+    ├─── ENTRY PATH (polling, authoritative for entry decisions)
+    │    ↓
+    │    core/trading-engine (orchestrates the polling cycle)
+    │    ↓
+    │    modules/data-ingestion/ (aggregate, health check, publish NormalizedOrderBook)
+    │    ↓
+    │    modules/arbitrage-detection/ (identify opportunities, calculate edge)
+    │    ↓ uses modules/contract-matching/ (match validation, knowledge base lookup)
+    │    ↓ (synchronous DI call)
+    │    modules/risk-management/ (validate position, check limits, reserve budget)
+    │    ↓ (synchronous DI call)
+    │    modules/execution/ (depth-aware sizing → edge re-validation → submit orders, manage legs)
+    │                       ↑ pre-flight depth on BOTH legs before submission (Epic 10.4)
+    │                       ↑ matchedCount = min(primaryCapped, secondaryCapped) for both legs
+    │                       ↑ edge re-validated with actual gas fraction after sizing (FR-EX-03a)
+    │
+    └─── EXIT PATH (WebSocket subscriptions, authoritative for exit decisions) [Epic 10]
+         ↓
+         connectors/.subscribeToContracts(openPositionIds)
+         ↓
+         modules/exit-management/ (continuous edge recalculation, five-criteria model-driven exits)
+                                  ↑ WebSocket feed for real-time price/depth (primary)
+                                  ↑ polling fallback with staleness indicator when WS unavailable
+                                  ↑ divergence monitoring: poll vs WS beyond threshold → alert
     ↓
-modules/data-ingestion/ (aggregate, health check, publish NormalizedOrderBook)
-    ↓
-modules/arbitrage-detection/ (identify opportunities, calculate edge)
-    ↓ uses modules/contract-matching/ (match validation, knowledge base lookup)
-    ↓ (synchronous DI call)
-modules/risk-management/ (validate position, check limits, reserve budget)
-    ↓ (synchronous DI call)
-modules/execution/ (depth-aware sizing → edge re-validation → submit orders, manage legs)
-    ↓                  ↑ primary leg submitted before secondary depth known (MVP constraint)
-    ↓                  ↑ each leg independently capped to available depth (min 25% of ideal)
-    ↓                  ↑ edge re-validated with actual gas fraction after sizing (FR-EX-03a)
-modules/exit-management/ (monitor positions, VWAP-aware threshold evaluation, depth-verified exit sizing)
-    ↓                  ↑ exit orders depth-checked and capped to available liquidity (FR-EX-03)
-    ↓                  ↑ partial fills transition to EXIT_PARTIAL for operator resolution
     ↓ (EventEmitter2 fan-out from all modules)
 modules/monitoring/ (audit logs, Telegram alerts, dashboard events, compliance reports)
     ↓

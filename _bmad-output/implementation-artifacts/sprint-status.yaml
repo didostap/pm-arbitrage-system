@@ -191,7 +191,12 @@ development_status:
   epic-9-retrospective: done
 
   # EPIC 10: Model-Driven Exits & Advanced Execution (Phase 1)
+  # Pre-Epic 10 Tech Debt & Architecture Sprint (from Epic 9 retro action items)
+  # Capacity Budget (Agreement #22): 7 base stories, expect 9-11 total with 30-40% correction buffer
   epic-10: backlog
+  10-0-1-websocket-subscription-establishment-divergence-monitoring: backlog # Critical path: blocks 10.1. IPlatformConnector.subscribeToContracts(), both connectors, divergence detection, dashboard health indicator.
+  10-0-2-carry-forward-debt-triage-critical-fixes: backlog # Critical path: blocks 10.2 (resolutionDate, realizedPnl) and 10.3 (SingleLegContext). Triage all 28 items, resolve 3 blockers.
+  10-0-3-exit-monitor-architecture-review: backlog # Spike: ThresholdEvaluatorService refactor sketch for five-criteria model. Design document, no implementation.
   10-1-continuous-edge-recalculation: backlog
   10-2-five-criteria-model-driven-exit-logic: backlog
   10-3-automatic-single-leg-management: backlog
@@ -214,14 +219,14 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
-# Total Stories: 93 (2 dropped in Epic 6.5, +2 tech debt stories 9-0-1/9-0-2, +2 course correction 9-1a/9-1b, +1 course correction 9-5, +1 course correction 9-6, +1 course correction 9-7, +1 course correction 9-8, +1 course correction 9-4a, +1 course correction 9-9, +5 course correction 9-10/9-11/9-12/9-13/9-14 dashboard UX overhaul, +4 course correction 9-15/9-16/9-17/9-18 production defect fixes, +3 course correction 9-19/9-20/9-21 VWAP consolidation/staleness/UX audit)
+# Total Stories: 96 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items)
 # Epics done: 13 (Epics 1-9, 4.5, 5.5, 6.5, 7.5)
 # Epics in-progress: 0
 # Stories done: 93 (all done stories through Epic 9-21)
 # Stories in-review: 0
-# Stories backlog: 4 (Epic 10: 10-1, 10-2, 10-3, 10-4)
+# Stories backlog: 7 (Epic 10: 10-0-1, 10-0-2, 10-0-3, 10-1, 10-2, 10-3, 10-4)
 # Stories ready-for-dev: 0
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 13 (Epics 1-9, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 9 done (2026-03-15). Pre-Epic 10 preparation: WebSocket subscriptions, carry-forward debt triage, architecture review.
+# CURRENT: Epic 9 done (2026-03-15). Epic 10 pre-sprint: 10-0-1 (WebSocket subscriptions), 10-0-2 (debt triage + critical fixes), 10-0-3 (architecture review spike).

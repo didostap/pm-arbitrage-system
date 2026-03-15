@@ -193,6 +193,18 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 - **Framework:** Vitest + unplugin-swc for decorator metadata
 - **Run before committing.** Do not commit if tests fail.
 
+### Testing Conventions (Epic 9 Retro)
+
+- **Internal subsystem verification:** Tests must verify data actually arrives through claimed channels, not just that receiving code handles it correctly. If a module claims to receive data from WebSocket, test that the subscription exists and data flows — don't just test that the handler processes mock data.
+- **Paper/live boundary testing:** Paper mode has fundamentally different execution semantics (simulated fills, no platform API verification). Every `isPaper` branch needs explicit dual-path test coverage. Create dedicated tests for paper/live divergent behavior.
+- **Investigation-first pattern:** If a problem statement includes "intermittent," "unclear why," or "sometimes," the first task is investigation with documented findings before code changes. Do not assume the root cause.
+
+## Story Design Conventions (Epic 9 Retro)
+
+- **Vertical slice minimum:** Every story that adds a backend capability MUST include at least minimal dashboard observability. An unobservable feature is an unvalidated feature. Story ACs should specify what the operator can see.
+- **Compiler-driven migration:** When introducing a new type (e.g., branded types), intentionally break compilation and use the error list as the task list. This ensures complete coverage across the codebase.
+- **Dual data path divergence:** Any architecture with parallel data paths (e.g., polling + WebSocket) MUST include observable divergence detection with alerting. Use the more conservative data for safety-critical decisions.
+
 ## Post-Edit Workflow
 
 1. Complete all code changes
