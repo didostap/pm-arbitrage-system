@@ -3306,11 +3306,121 @@ So that trades are placed when books can support them.
 **And** opportunities outside window filtered
 **And** open positions still monitored regardless of window
 
+### Epic 10.8: God Object Decomposition & Structural Refactoring
+Decompose all identified God Objects into focused, single-responsibility services. Every refactored source file should be under ~600 lines. Zero functional changes — pure internal refactoring with 100% test pass rate maintained throughout.
+**FRs covered:** None (internal quality improvement)
+**Course correction:** 2026-03-23 — codebase audit identified 6 God Objects/Files accumulated over Epics 4–10.5 (RiskManagerService 1,651 lines, ExitMonitorService 1,438 lines, ExecutionService 1,395 lines, DashboardService 1,205 lines, TelegramMessageFormatter 789 lines, TelegramAlertService 734 lines).
+
+**Prerequisites:** Epic 10.7 must be complete before refactoring begins (don't interrupt active feature work).
+
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07
 
-**Prerequisites (from Epic 10.5 and 10.7):** Epic 10.5 stories 10-5-4 through 10-5-8 and Epic 10.7 must be complete before feature stories begin.
+**Prerequisites (from Epic 10.5, 10.7, and 10.8):** Epic 10.5 stories 10-5-4 through 10-5-8, Epic 10.7, and Epic 10.8 must be complete before feature stories begin.
+
+## Epic 10.8: God Object Decomposition & Structural Refactoring
+
+Decompose all identified God Objects into focused, single-responsibility services. Every refactored source file should be under ~600 lines. Zero functional changes — pure internal refactoring with 100% test pass rate maintained throughout.
+
+**Hard Constraint:** Zero functional changes. Every story must pass the existing test suite with no behavioral modifications.
+
+### Story 10-8-1: RiskManagerService Decomposition (P0)
+
+As a developer,
+I want `RiskManagerService` (1,651 lines, 34 methods, 6 responsibilities) decomposed into 4 focused services,
+So that each service has a single responsibility and is consumable by an AI agent in one context read.
+
+**Acceptance Criteria:**
+
+**Given** the existing `RiskManagerService` has 6 distinct responsibilities
+**When** I extract `BudgetReservationService` (reserve/commit/release/adjust/clear), `TradingHaltService` (halt/resume lifecycle), and `RiskStateManager` (state init/persistence/recalculation)
+**Then** `RiskManagerService` retains only validation, PnL, and config orchestration
+**And** each new service file is under 500 lines
+**And** `RiskManagerService` is under 600 lines
+**And** all existing tests pass with zero behavioral changes
+**And** `risk-manager.service.spec.ts` (2,747 lines) is decomposed into co-located files (<800 lines each)
+**And** no module dependency rule violations are introduced
+**And** all consumers inject the most specific service they need
+
+### Story 10-8-2: ExitMonitorService Decomposition (P0)
+
+As a developer,
+I want `ExitMonitorService` (1,438 lines, 10 methods, 23 config properties) decomposed into 3 focused services,
+So that exit execution, data source management, and evaluation logic are independently testable.
+
+**Acceptance Criteria:**
+
+**Given** the existing `ExitMonitorService` mixes evaluation, execution, and data source concerns
+**When** I extract `ExitExecutionService` (executeExit, handlePartialExit) and `ExitDataSourceService` (classifyDataSource, combineDataSources, getClosePrice, getAvailableExitDepth)
+**Then** `ExitMonitorService` retains only the evaluation loop and config management
+**And** each new service file is under 500 lines
+**And** `ExitMonitorService` is under 600 lines
+**And** config properties are distributed to the service that uses them
+**And** all existing tests pass with zero behavioral changes
+
+### Story 10-8-3: ExecutionService Decomposition (P1)
+
+As a developer,
+I want `ExecutionService` (1,395 lines, 7 methods, ~200 lines/method) decomposed into 3 focused services,
+So that sequencing strategy, depth analysis, and core execution are independently maintainable.
+
+**Acceptance Criteria:**
+
+**Given** the existing `ExecutionService` bundles sequencing, depth analysis, and execution orchestration
+**When** I extract `LegSequencingService` (determineSequencing, resolveConnectors, classifyDataSource) and `DepthAnalysisService` (getAvailableDepth + depth helpers)
+**Then** `ExecutionService` retains only core `execute`, `handleSingleLeg`, and `reloadConfig`
+**And** each new service file is under 500 lines
+**And** `ExecutionService` is under 600 lines
+**And** `execute()` method is under 200 lines (extract orchestration helpers if needed)
+**And** `execution.service.spec.ts` (3,714 lines) is decomposed into co-located files (<800 lines each)
+**And** all existing tests pass with zero behavioral changes
+
+### Story 10-8-4: DashboardService Decomposition (P1)
+
+As a developer,
+I want `DashboardService` (1,205 lines, 20 methods, 14 deps) decomposed into 4 focused services,
+So that the "gateway God object" pattern is eliminated and each dashboard concern is independently maintainable.
+
+**Acceptance Criteria:**
+
+**Given** the existing `DashboardService` aggregates overview, positions, capital, PnL, alerts, audit, shadow, and bankroll concerns
+**When** I extract `DashboardOverviewService` (overview + health), `DashboardCapitalService` (capital + PnL + bankroll), and `DashboardAuditService` (alerts + audit parsing)
+**Then** `DashboardService` retains only position queries (delegating to `enrichmentService`)
+**And** each new service file is under 400 lines
+**And** `DashboardController` injects specific services (not a single God service)
+**And** `dashboard.service.spec.ts` (1,444 lines) is decomposed into co-located files
+**And** all existing tests pass with zero behavioral changes
+
+### Story 10-8-5: TelegramMessageFormatter Domain Split (P2)
+
+As a developer,
+I want the `TelegramMessageFormatter` God File (789 lines, 31 functions) split into domain-specific formatter files,
+So that each formatter file is focused and under 200 lines.
+
+**Acceptance Criteria:**
+
+**Given** the existing file has 31 standalone formatter functions in one file
+**When** I split into 7 domain files (execution, risk, platform, system, exit, detection, matching formatters) plus `formatter-utils.ts`
+**Then** each formatter file is under 200 lines
+**And** a barrel `index.ts` in `formatters/` re-exports all functions for backward compatibility
+**And** `telegram-message.formatter.ts` is deleted (replaced by domain files)
+**And** all existing tests pass with zero behavioral changes
+
+### Story 10-8-6: TelegramAlertService Circuit Breaker Extraction (P2)
+
+As a developer,
+I want the circuit breaker logic extracted from `TelegramAlertService` (734 lines) into a dedicated `TelegramCircuitBreaker` service,
+So that message delivery and failure resilience are independently testable.
+
+**Acceptance Criteria:**
+
+**Given** the existing `TelegramAlertService` mixes message delivery with circuit breaking state machine
+**When** I extract `TelegramCircuitBreaker` (circuit state tracking, consecutive failure counting, recovery logic)
+**Then** `TelegramCircuitBreaker` is under 200 lines
+**And** `TelegramAlertService` is under 550 lines
+**And** the circuit breaker is independently testable
+**And** all existing tests pass with zero behavioral changes
 
 ## Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 

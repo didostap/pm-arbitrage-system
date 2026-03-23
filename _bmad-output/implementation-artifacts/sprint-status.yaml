@@ -223,21 +223,33 @@ development_status:
   # EPIC 10.7: Paper Trading Profitability & Execution Quality Sprint
   # Course correction 2026-03-23: analysis of 202 paper positions (0% profitability) revealed systemic entry/exit quality gaps
   # Capacity Budget (Agreement #22): 9 base stories, expect 12-13 total with 30-40% correction buffer
-  epic-10-7: backlog
-  10-7-1-pre-trade-dual-leg-liquidity-gate: backlog # P0. Verify both platforms have sufficient depth before either leg submitted. Strengthens FR-EX-03.
-  10-7-2-vwap-slippage-aware-edge-calculation: backlog # P0. Replace best-bid/ask edge with VWAP-based edge at target position size. Depends on 10-7-1.
-  10-7-3-c5-exit-depth-slippage-band-correction: backlog # P0. Replace raw VWAP cutoff with configurable tolerance band in getAvailableExitDepth. Option B.
-  10-7-4-realized-pnl-computation-investigation-fix: backlog # P0. Investigation-first: 10-0-2 wiring exists but all 198 closed positions have NULL realized_pnl.
-  10-7-5-exit-execution-chunking-polymarket-liquidity: backlog # P1. Split exits into depth-matched chunks. Depends on 10-7-3.
-  10-7-6-per-pair-position-cooldown-concentration-limits: backlog # P1. Cooldown + max concurrent + diversity cap per pair. Independent.
-  10-7-7-shadow-exit-comparison-payload-fix: backlog # P1. 979 audit logs with NULL decision fields. Independent.
-  10-7-8-dynamic-minimum-edge-threshold-book-depth: backlog # P2. Edge threshold scales inversely with book depth. Depends on 10-7-2.
-  10-7-9-trading-window-analysis-time-filtering: backlog # P2. Investigation + configurable UTC trading windows. Independent.
-  epic-10-7-retrospective: optional
+  epic-10-7: done
+  10-7-1-pre-trade-dual-leg-liquidity-gate: done # P0. Verify both platforms have sufficient depth before either leg submitted. Strengthens FR-EX-03. Story created 2026-03-23. Implemented 2026-03-23: dual-leg gate in execute(), 18 tests (16 unit + 2 boundary), all 2630 tests pass.
+  10-7-2-vwap-slippage-aware-edge-calculation: done # P0. Replace best-bid/ask edge with VWAP-based edge at target position size. Depends on 10-7-1. Story created 2026-03-23. Implemented 2026-03-23: VWAP edge calc, 24 tests (18 edge-calc + 6 financial-math), all 2673 tests pass. Code review completed 2026-03-23: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 29 raw findings triaged to 5 patch + 1 bad-spec + 3 defer + 11 reject. Fixed all 6 actionable items (ConfigValidationError, NaN guard, downstream test mocks, DRY helper extraction, closeSide=sell tests, totalDepth semantics). All 2675 tests pass.
+  10-7-3-c5-exit-depth-slippage-band-correction: done # P0. Replace raw VWAP cutoff with configurable tolerance band in getAvailableExitDepth. Option B. Story created 2026-03-23. Implemented 2026-03-23: tolerance band in getAvailableExitDepth(), 10 new tests, all 2685 tests pass. Code review completed 2026-03-23: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 26 raw findings triaged to 0 patch + 4 defer + 22 reject. Fixed 2 deferred items (Decimal precision comparison, quantity>0 guard). D2/D3 God Object deferred to 10-8-2.
+  10-7-4-realized-pnl-computation-investigation-fix: done # P0. Investigation-first: 10-0-2 wiring exists but all 198 closed positions have NULL realized_pnl. Story created 2026-03-23. Implemented 2026-03-24: fixed 2 CLOSED transitions in exit-monitor to persist realizedPnl, 13 new tests (9 unit + 4 boundary), all 2698 tests pass. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 22 raw findings triaged to 0 patch + 6 defer + 10 reject. Fixed all 6 deferred items: D5+D4 PositionRepository.closePosition() with NaN guard, D1 partial PnL accumulation, D3 RiskStateDivergenceEvent, D2 sumClosedPnlByDateRange with COALESCE, D6 pinned PnL value test. All 2706 tests pass.
+  10-7-5-exit-execution-chunking-polymarket-liquidity: done # P1. Split exits into depth-matched chunks. Depends on 10-7-3. Story created 2026-03-24. Implemented 2026-03-24: chunking loop in executeExit(), 13 new tests, all 2720 tests pass. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 28 raw findings triaged to 1 patch + 1 bad-spec + 4 defer + 22 reject. Fixed all 6 items: P1 zero-fill loop guard, BS1 EXIT_PARTIAL_CHUNKED event + ExitTriggeredEvent chunksCompleted/isPartial fields, D1 handlePartialExit skipStatusUpdate, D2 depth-fetch-failure break, D3 chunksCompleted in event payload, D4 defensive sort in getAvailableExitDepth + NormalizedOrderBook JSDoc. All 2729 tests pass.
+  10-7-6-per-pair-position-cooldown-concentration-limits: done # P1. Cooldown + max concurrent + diversity cap per pair. Independent. Story created 2026-03-24. Implemented 2026-03-24: 3 concentration filters (cooldown, concurrent, diversity) in trading engine cycle, 45 new tests (19 unit + 9 repo + 5 engine + 2 monitoring + 10 boundary), all 2774 tests pass. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 30 raw findings triaged to 3 patch + 1 bad-spec + 4 defer + 8 reject. Fixed all 4 actionable items: BS1 broadened getActivePositionCountsByPair to count all active statuses, P1 replaced ConfigService with ConfigAccessor for AC-4 hot-reload, P2 severity mismatch warning→critical on SYSTEM_HEALTH_CRITICAL, P3 resolved by P1 (@OnEvent handler removed). All 2776 tests pass.
+  10-7-7-shadow-exit-comparison-payload-fix: done # P1. 979 audit logs with NULL decision fields. Independent. Story created 2026-03-24. Implemented 2026-03-24: added decision summary fields to ShadowComparisonEvent and all downstream consumers, 23 new tests, all 2799 tests pass. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 22 raw findings triaged to 1 patch + 1 bad-spec + 20 reject. Fixed both actionable items (DivergenceDetail type dedup, agreeCount/disagreeCount in ShadowDailySummaryEvent chain). All 2800 tests pass.
+  10-7-8-dynamic-minimum-edge-threshold-book-depth: done # P2. Edge threshold scales inversely with book depth. Depends on 10-7-2. Story created 2026-03-24. Implemented 2026-03-24: dynamic threshold in EdgeCalculatorService, 14 new tests, all 2814 tests pass. Code review #1 (kimi-k2.5): 7 findings, 2 patch + 5 reject. Code review #2 (Claude Opus 4.6 3-layer adversarial): 32 raw findings, 1 patch + 3 defer + 17 reject. Fixed: P1 vacuous tests 4.4/4.7 deterministic, D1 cached minEdgeThreshold + wired hot-reload, D2 validateConfig raw Error→ConfigValidationError, D3 God File 725→547 lines (extracted helpers). All 2810 unit tests pass.
+  10-7-9-trading-window-analysis-time-filtering: done # P2. Investigation + configurable UTC trading windows. Independent. Story created 2026-03-24. Implemented 2026-03-24: investigation (371 positions, 95% in 13-21 UTC), config pipeline (2 new settings), cycle-level gate in SchedulerService, 28 new tests, all 2842 tests pass. Code review #1 (Kimi K2.5): 7 findings, 2 patch + 5 reject. Fixed both: partial update tests, order-of-operations test. Code review #2 (Claude Opus 4.6 3-layer adversarial): 33 raw findings triaged to 2 patch + 31 reject. Fixed P1 TOCTOU dual Date read (isWithinTradingWindow now accepts currentHour param), P2 AC-14 comment typo. All 2842 tests pass.
+  epic-10-7-retrospective: done # Completed 2026-03-24. Key insights: data-driven stories eliminate scope creep, code review needs context priming (19% actionable rate), soft disciplines fail—Agreement #30 (no standalone soft commitments). 10-8-0 design spike gates all 10.8 code stories. Profitability validation pending before 10.8.
+
+  # EPIC 10.8: God Object Decomposition & Structural Refactoring
+  # Course correction 2026-03-23: codebase audit identified 6 God Objects/Files (RiskManagerService 1651 lines, ExitMonitorService 1438, ExecutionService 1395, DashboardService 1205, TelegramMessageFormatter 789, TelegramAlertService 734)
+  # Zero functional changes — pure internal refactoring. Hard gate before Epic 11.
+  epic-10-8: backlog
+  10-8-1-risk-manager-service-decomposition: backlog # P0. Split 1651-line/34-method/6-responsibility God Object into BudgetReservationService + TradingHaltService + RiskStateManager + slimmed RiskManagerService.
+  10-8-2-exit-monitor-service-decomposition: backlog # P0. Split 1438-line service into ExitExecutionService + ExitDataSourceService + slimmed ExitMonitorService.
+  10-8-3-execution-service-decomposition: backlog # P1. Split 1395-line service into LegSequencingService + DepthAnalysisService + slimmed ExecutionService. Depends on 10-8-1.
+  10-8-4-dashboard-service-decomposition: backlog # P1. Split 1205-line gateway God Object into DashboardOverviewService + DashboardCapitalService + DashboardAuditService + slimmed DashboardService. Depends on 10-8-1, 10-8-2, 10-8-3.
+  10-8-5-telegram-message-formatter-domain-split: backlog # P2. Split 789-line/31-function God File into 7 domain formatter files + utils. Independent.
+  10-8-6-telegram-circuit-breaker-extraction: backlog # P2. Extract circuit breaker from 734-line TelegramAlertService. Independent.
+  epic-10-8-retrospective: optional
 
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
   # Pre-epic stories (11-0-1 through 11-0-4) absorbed into Epic 10.5 (stories 10-5-4 through 10-5-8)
-  # Epic 10.7 (paper profitability) is an additional hard gate before Epic 11
+  # Epic 10.7 (paper profitability) and Epic 10.8 (God Object decomposition) are additional hard gates before Epic 11
   epic-11: backlog
   11-1-platform-connector-plugin-architecture: backlog
   11-2-external-secrets-management-integration: backlog
@@ -252,15 +264,15 @@ development_status:
   epic-12-retrospective: optional
 
 # SUMMARY STATISTICS:
-# Total Epics: 18 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability)
-# Total Stories: 129 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability)
-# Epics done: 15 (Epics 1-10, 4.5, 5.5, 7.5, 10.5)
+# Total Epics: 19 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition)
+# Total Stories: 135 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +6 Epic 10.8 refactoring)
+# Epics done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
 # Epics in-progress: 0
-# Stories done: 120 (all done stories through Epic 10.5)
+# Stories done: 129 (all done stories through Epic 10.7)
 # Stories in-review: 0
 # Stories ready-for-dev: 0
-# Stories backlog: 12 (Epic 10.7: 10-7-1 through 10-7-9; Epic 11: 11-1, 11-2, 11-3)
+# Stories backlog: 9 (Epic 10.8: 10-8-1 through 10-8-6; Epic 11: 11-1, 11-2, 11-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
-# Retrospectives done: 15 (Epics 1-10, 4.5, 5.5, 7.5, 10.5)
+# Retrospectives done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.5 done. Epic 10.7 (paper profitability) next — 9 stories backlog. Preparation: design sketch on 10-7-1, VWAP knowledge transfer, structural guard dry run, investigation scope caps.
+# CURRENT: Epic 10.7 done — profitability validation in progress. Epic 10.8 (God Object decomposition) next — blocked on 10-8-0 design spike (not yet created). Sequence: 10.8 → 11.

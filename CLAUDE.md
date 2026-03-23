@@ -82,18 +82,39 @@ src/
 └── persistence/                    # PrismaService, repositories, startup reconciliation
 ```
 
+### No God Objects or God Files
+
+**HARD CONSTRAINT — violations must be blocked in code review.**
+
+A God object is a class that accumulates too many responsibilities. A God file is a single file that grows to contain logic belonging in multiple modules. Both destroy the module boundary architecture above and make the system untestable.
+
+**Rules:**
+
+- **Services:** A single service class must not exceed ~300 lines (excluding imports and type declarations). If it does, it is accumulating responsibilities that should be separate services composed via DI.
+- **Files:** No single `.ts` file should exceed ~400 lines. Long files signal mixed concerns — split into focused units.
+- **Injected dependencies:** A constructor injecting more than 5 dependencies is a smell. It likely orchestrates too many concerns and should be decomposed or fronted by a facade that delegates to focused sub-services.
+- **Module scope:** Each NestJS module owns one bounded context. If a module's `providers` array exceeds ~8 services, evaluate whether it has absorbed a second responsibility that warrants its own module.
+- **Utility grab-bags:** `utils.ts`, `helpers.ts`, or `common.ts` files that collect unrelated functions are God files in disguise. Group utilities by domain (e.g., `time.utils.ts`, `crypto.utils.ts`) and keep each focused.
+- **Detection during review:** If a PR adds >50 lines to an existing service or file that is already near the limits above, the reviewer must flag it for decomposition before merge — not after.
+
+When in doubt, prefer more files with narrow responsibilities over fewer files with broad ones.
+
 ### Communication Patterns
 
 **Hot path (synchronous DI injection) — BLOCKING IS CORRECT HERE:**
+
 ```
 Detection → Risk validation → Execution
 ```
+
 Never execute without risk validation completing. This is a direct synchronous call chain.
 
 **Fan-out (async EventEmitter2) — NEVER BLOCK EXECUTION:**
+
 ```
 All modules emit events → Monitoring subscribes → Dashboard, Telegram, audit logs
 ```
+
 Telegram API timeouts must never delay the next execution cycle.
 
 ### Module Dependency Rules
@@ -101,6 +122,7 @@ Telegram API timeouts must never delay the next execution cycle.
 **IMPORTANT — These are hard constraints. Violations break the architecture.**
 
 Allowed imports:
+
 - `core/` → `modules/*` (orchestrates via interfaces)
 - `modules/data-ingestion/` → `connectors/` (consumes platform data)
 - `modules/execution/` → `connectors/` (submits orders) + `modules/risk-management/` (budget reservation)
@@ -110,6 +132,7 @@ Allowed imports:
 - All modules → `common/` (interfaces, errors, events, types, constants)
 
 **FORBIDDEN — never create these imports:**
+
 - No module imports another module's service directly — only through interfaces in `common/interfaces/`
 - `connectors/` NEVER imports from `modules/`
 - `common/` NEVER imports from `modules/`, `connectors/`, `core/`, or `dashboard/`
@@ -128,6 +151,7 @@ SystemError (base)
 ```
 
 Each error carries: `severity`, `retryStrategy`, contextual data. The global exception filter routes by severity:
+
 - Critical → high-priority event (Telegram + audit + potential halt)
 - Warning → dashboard update + log
 - Info → log only
@@ -137,6 +161,7 @@ Each error carries: `severity`, `retryStrategy`, contextual data. The global exc
 **Every observable state change MUST emit a domain event via EventEmitter2.**
 
 Event naming: dot-notation matching module structure.
+
 ```
 execution.order.filled
 execution.single-leg.detected
@@ -153,6 +178,7 @@ Event classes in `common/events/` — use PascalCase (e.g., `OrderFilledEvent`).
 ### API Response Format
 
 All REST endpoints use standardized wrappers:
+
 ```typescript
 // Success
 { data: T, timestamp: string }
@@ -174,17 +200,17 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 
 ## Naming Conventions
 
-| Context | Convention | Example |
-|---------|-----------|---------|
-| Files | kebab-case | `risk-manager.service.ts` |
-| Classes/Interfaces | PascalCase | `IRiskManager`, `KalshiConnector` |
-| Functions/variables | camelCase | `validatePosition`, `currentExposure` |
-| Constants | UPPER_SNAKE_CASE | `MAX_POSITION_SIZE` |
-| DB tables | snake_case (Prisma @map) | `contract_matches`, `audit_logs` |
-| DB columns | snake_case (Prisma @map) | `confidence_score`, `created_at` |
-| API URLs | kebab-case | `/api/contract-matches` |
-| API JSON fields | camelCase | `confidenceScore` |
-| Events | dot-notation | `execution.order.filled` |
+| Context             | Convention               | Example                               |
+| ------------------- | ------------------------ | ------------------------------------- |
+| Files               | kebab-case               | `risk-manager.service.ts`             |
+| Classes/Interfaces  | PascalCase               | `IRiskManager`, `KalshiConnector`     |
+| Functions/variables | camelCase                | `validatePosition`, `currentExposure` |
+| Constants           | UPPER_SNAKE_CASE         | `MAX_POSITION_SIZE`                   |
+| DB tables           | snake_case (Prisma @map) | `contract_matches`, `audit_logs`      |
+| DB columns          | snake_case (Prisma @map) | `confidence_score`, `created_at`      |
+| API URLs            | kebab-case               | `/api/contract-matches`               |
+| API JSON fields     | camelCase                | `confidenceScore`                     |
+| Events              | dot-notation             | `execution.order.filled`              |
 
 ## Testing
 
@@ -193,52 +219,79 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 - **Framework:** Vitest + unplugin-swc for decorator metadata
 - **Run before committing.** Do not commit if tests fail.
 
-### Testing Conventions (Epic 9 Retro)
+### Assertion Depth
 
-- **Internal subsystem verification:** Tests must verify data actually arrives through claimed channels, not just that receiving code handles it correctly. If a module claims to receive data from WebSocket, test that the subscription exists and data flows — don't just test that the handler processes mock data.
-- **Paper/live boundary testing:** Paper mode has fundamentally different execution semantics (simulated fills, no platform API verification). Every `isPaper` branch needs explicit dual-path test coverage. Create dedicated tests for paper/live divergent behavior.
-- **Investigation-first pattern:** If a problem statement includes "intermittent," "unclear why," or "sometimes," the first task is investigation with documented findings before code changes. Do not assume the root cause.
+Test assertions MUST verify payloads with `expect.objectContaining({...})` or equivalent. Bare `toHaveBeenCalled()` without argument verification is insufficient for event emission and service call tests.
 
-### Testing Conventions (Epic 10 Retro)
+### Internal Subsystem Verification
 
-- **Event wiring verification:** Every new `@OnEvent` handler MUST have a corresponding `expectEventHandled()` integration test verifying the decorator actually connects the emitter to the handler via real EventEmitter2. Use the helper in `src/common/testing/expect-event-handled.ts`. Do NOT rely on mocked EventEmitter2 for wiring verification.
-- **Collection lifecycle requirement:** Every new `Map`/`Set` in a service MUST specify its cleanup strategy in a code comment (e.g., `/** Cleanup: .delete() on X, .clear() on Y */`) AND have a test verifying the cleanup path works. Unbounded collections must have a documented bound or TTL mechanism.
+Tests must verify data actually arrives through claimed channels, not just that receiving code handles it correctly. If a module claims to receive data from WebSocket, test that the subscription exists and data flows — don't just test that the handler processes mock data.
 
-### Testing Conventions (Epic 10.5 — Paper/Live Mode Boundary)
+### Event Wiring Verification
 
-- **Dual-mode test coverage for `isPaper` branches:** Any story introducing mode-dependent behavior MUST include dedicated tests verifying paper operations do not affect live state and vice versa. Use `describe.each([[true, 'paper'], [false, 'live']])` for dual-mode test matrix. Tests go in `src/common/testing/paper-live-boundary/` organized by module.
-- **Repository mode-scoping:** All repository methods querying `open_positions` or `orders` with status filters MUST accept a required `isPaper: boolean` parameter (no defaults). Use the `withModeFilter(isPaper)` helper from `src/persistence/repositories/mode-filter.helper.ts` internally for where clauses. The `= false` default was the exact pattern that caused the 10.1 post-deploy bug.
-- **Raw SQL `-- MODE-FILTERED` marker:** Every raw SQL query (`$queryRaw`, `$executeRaw`) referencing mode-sensitive tables (`open_positions`, `orders`, `risk_states`) MUST include `is_paper` filtering AND the `-- MODE-FILTERED` comment marker at the end of the query. Health check queries (`SELECT 1`) are exempt.
+Every new `@OnEvent` handler MUST have a corresponding `expectEventHandled()` integration test verifying the decorator actually connects the emitter to the handler via real EventEmitter2. Use the helper in `src/common/testing/expect-event-handled.ts`. Do NOT rely on mocked EventEmitter2 for wiring verification.
 
-## Story Design Conventions (Epic 9 Retro)
+### Collection Lifecycle Requirement
+
+Every new `Map`/`Set` in a service MUST specify its cleanup strategy in a code comment (e.g., `/** Cleanup: .delete() on X, .clear() on Y */`) AND have a test verifying the cleanup path works. Unbounded collections must have a documented bound or TTL mechanism.
+
+### Paper/Live Mode Boundary
+
+- Any story introducing mode-dependent behavior MUST include dedicated tests verifying paper operations do not affect live state and vice versa. Use `describe.each([[true, 'paper'], [false, 'live']])` for dual-mode test matrix. Tests go in `src/common/testing/paper-live-boundary/` organized by module.
+- Paper mode has fundamentally different execution semantics (simulated fills, no platform API verification). Every `isPaper` branch needs explicit dual-path test coverage.
+- All repository methods querying `open_positions` or `orders` with status filters MUST accept a required `isPaper: boolean` parameter (no defaults). Use the `withModeFilter(isPaper)` helper from `src/persistence/repositories/mode-filter.helper.ts` internally for where clauses.
+- Every raw SQL query (`$queryRaw`, `$executeRaw`) referencing mode-sensitive tables (`open_positions`, `orders`, `risk_states`) MUST include `is_paper` filtering AND the `-- MODE-FILTERED` comment marker at the end of the query. Health check queries (`SELECT 1`) are exempt.
+
+### Dead Code Removal
+
+Remove unused imports, dead DTO fields, and stale comments immediately. Use `expectNoDeadHandlers()` from `src/common/testing/expect-event-handled.ts` for dead event handler detection. TypeScript strict mode (`noUnusedLocals`, `noUnusedParameters`) catches dead imports at compile time.
+
+### Investigation-First Pattern
+
+If a problem statement includes "intermittent," "unclear why," or "sometimes," the first task is investigation with documented findings before code changes. Do not assume the root cause.
+
+## Story Design Conventions
 
 - **Vertical slice minimum:** Every story that adds a backend capability MUST include at least minimal dashboard observability. An unobservable feature is an unvalidated feature. Story ACs should specify what the operator can see.
+- **Story sizing gate (#25):** Stories exceeding 10 tasks or 3+ integration boundaries MUST be flagged for splitting during story preparation (oversized stories fragment the developer's mental model and make integration seam verification impractical).
 - **Compiler-driven migration:** When introducing a new type (e.g., branded types), intentionally break compilation and use the error list as the task list. This ensures complete coverage across the codebase.
 - **Dual data path divergence:** Any architecture with parallel data paths (e.g., polling + WebSocket) MUST include observable divergence detection with alerting. Use the more conservative data for safety-critical decisions.
+- **Design sketch gate (#27):** Any story touching execution, edge calculation, or risk management gets a lightweight design sketch reviewed by the architect before implementation begins. Scope: TOCTOU race analysis, fail-closed semantics, `isPaper` mode handling, module boundary interactions.
+- **Pre-implementation naming walkthrough (#29):** Story author and implementer do a 5-minute walkthrough of string literals, enum values, DTO field names, and API path conventions before coding starts (prevents spec-to-implementation naming divergence).
 
-## Story Design Conventions (Epic 10 Retro)
+## Code Review Conventions
 
-- **Story sizing gate (Agreement #25):** Stories exceeding 10 tasks or 3+ integration boundaries MUST be flagged for splitting during story preparation. Story 10-0-1 (7 phases, 17 tasks, 5 CRITICAL review findings) demonstrated that oversized stories fragment the developer's mental model and make integration seam verification impractical. Pre-split review during preparation, not after implementation reveals the problem.
-
-## Story Design Conventions (Epic 10.5 Retro)
-
-- **Design sketch gate for hot-path stories (Agreement #27):** Any story touching execution, edge calculation, or risk management gets a lightweight design sketch reviewed by the architect before implementation begins. Scope: TOCTOU race analysis, fail-closed semantics, `isPaper` mode handling, module boundary interactions. The sketch is not a full design doc — it's a 15-minute review that catches architecture-class flaws before they become code review findings. Validated by 10-5-2 where a design review would have prevented a full hot-reload architecture rewrite.
-- **Pre-implementation naming walkthrough (Agreement #29):** Story author and implementer do a 5-minute walkthrough of string literals, enum values, DTO field names, and API path conventions before coding starts. Prevents spec-to-implementation naming divergence that caused cascading E2E test failures in 10-5-3.
-
-## Code Review Conventions (Epic 10.5 Retro)
-
-- **Reviewer redundancy (Agreement #28):** Identify a fallback reviewer before each epic starts. If the primary Lad MCP reviewer fails after 3 retries, escalate to the fallback — different model, second instance, or structured self-review protocol with documented checklist. Addresses single point of failure where secondary reviewer (glm-5-turbo) consistently failed in Epic 10.5.
-
-## Code Review Conventions (Epic 10 Retro)
-
-- **Assertion depth:** Test assertions MUST verify payloads with `expect.objectContaining({...})` or equivalent. Bare `toHaveBeenCalled()` without argument verification is insufficient for event emission and service call tests. This was the most common MEDIUM finding (30%) in Epic 10 code reviews.
-- **Dead code removal:** Remove unused imports, dead DTO fields, and stale comments immediately. Use `expectNoDeadHandlers()` from `src/common/testing/expect-event-handled.ts` for dead event handler detection. TypeScript strict mode (`noUnusedLocals`, `noUnusedParameters`) catches dead imports at compile time.
+- **Assertion depth:** Same standard as Testing section — verify payloads, not just call presence.
 - **Boundary type safety:** Always convert Prisma Decimal fields via `new Decimal(value.toString())`. Validate external API responses at the boundary with explicit checks. Use branded entity ID types. Never trust `configService.get<boolean>()` for env vars — NestJS returns strings; parse explicitly.
+- **Dead code removal:** Same standard as Testing section — remove immediately, use tooling to detect.
+- **God object/God file prevention:** Same standard as the "No God Objects or God Files" section in Architecture — enforce line limits, constructor injection counts, and module provider counts during review. A PR that pushes a file past the thresholds must decompose before merge.
+- **Reviewer redundancy (#28):** Identify a fallback reviewer before each epic starts. If the primary reviewer fails after 3 retries, escalate to the fallback (different model, second instance, or structured self-review protocol with documented checklist).
 
-## Process Conventions (Epic 10 Retro)
+## Process Conventions
 
-- **Retro commitments as deliverables (Agreement #24):** Every retro action item MUST be expressible as a story with acceptance criteria or a task within a story. Open-ended discipline commitments without enforcement mechanisms are rejected at retro time. If it can't be a story, rephrase until it can.
-- **Structural guards over review vigilance (Agreement #26):** If code review catches the same defect category three times across an epic, it becomes a pre-epic story with structural prevention (test templates, linter rules, startup checks) — not a "be more careful" agreement. Recurring defect classes need constraints, not vigilance.
+- **Retro commitments as deliverables (#24):** Every retro action item MUST be expressible as a story with acceptance criteria or a task within a story. Open-ended discipline commitments without enforcement mechanisms are rejected at retro time.
+- **Structural guards over review vigilance (#26):** If code review catches the same defect category three times across an epic, it becomes a pre-epic story with structural prevention (test templates, linter rules, startup checks) — not a "be more careful" agreement.
+
+## Development Methodology (TDD)
+
+The `bmad-dev` and `bmad-quick-dev` agents MUST follow a **Test-Driven Development (TDD)** approach for all implementation work. The cycle is:
+
+1. **Red** — Write a failing test that captures the next unit of behavior before writing any production code.
+2. **Green** — Write the minimum production code required to make the test pass.
+3. **Refactor** — Clean up the production code and tests while keeping all tests green.
+
+Repeat per unit of behavior until the task is complete. Do not batch-write production code and backfill tests afterward — that is not TDD.
+
+### ATDD Checklist Integration
+
+If the user supplies an **ATDD (Acceptance Test-Driven Development) Checklist** file (typically produced in a prior workflow), the dev agent must:
+
+- **Load it at the start of the story** and use it as the authoritative map of expected behaviors and acceptance criteria.
+- **Trace each TDD cycle back to the checklist** — every test written should correspond to or refine an item in the ATDD checklist. If a test has no traceable checklist item, either the checklist is incomplete (flag it to the user) or the test is out of scope.
+- **Mark checklist items as covered** as implementation progresses. At story completion, all checklist items must have corresponding passing tests. Any uncovered items must be surfaced to the user before marking the story done.
+- **Use the checklist to guide implementation order** — prioritize high-risk or foundational acceptance criteria first, since later tests often depend on them.
+
+When no ATDD checklist is provided, the dev agent derives the test plan from the story's acceptance criteria and task list, still following the Red-Green-Refactor cycle.
 
 ## Session Initialization
 
@@ -261,6 +314,13 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 - **Retry on failure:** The Lad MCP `code_review` tool returns two independent reviewer responses. The connection may fail due to network instability or cold starts. Retry up to 3 attempts with a brief pause between each. If only one reviewer responds after all retries, use that single response. If the tool is not available in the environment or all retries fail, report the failure to the user and proceed without external review.
 - **Evaluate critically:** Address genuine bugs, security vulnerabilities, AC violations, or architectural mismatches. For stylistic suggestions or debatable trade-offs, apply judgment — if you disagree, note your reasoning and move on. When reviewers contradict each other, favor the finding that better aligns with the task's acceptance criteria.
 - **Re-test after fixes:** If changes are made based on review feedback, re-run affected tests to confirm no regressions.
+
+## Post-Story-Creation Review
+
+- **Lad MCP story review:** After creating a story file via `bmad-create-story`, submit the story for review using Lad MCP's `code_review` tool before marking it `ready-for-dev`. Story files are the dev agent's sole implementation guide — coherence gaps, missing context, or AC ambiguities here cascade into implementation defects.
+- **Scope precisely:** Use the `paths` parameter pointed at the story file. Include the epic's acceptance criteria, relevant architecture constraints, and the story's downstream dependencies in the `context` parameter.
+- **Retry and evaluate:** Same retry policy (3 attempts) and critical evaluation criteria as Post-Implementation Review. Focus on: missing AC coverage in tasks, code reuse opportunities not called out, architectural constraint violations, ambiguous instructions that could produce multiple interpretations, and missing file/function references the dev agent will need.
+- **Apply fixes inline:** If review identifies genuine gaps, fix the story file directly — do not leave findings as separate commentary. The story should read as if it was created correctly the first time.
 
 ## Domain Rules
 
