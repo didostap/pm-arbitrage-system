@@ -199,6 +199,11 @@ The `correlationId` links related events across an execution cycle. Use the `cor
 - **Paper/live boundary testing:** Paper mode has fundamentally different execution semantics (simulated fills, no platform API verification). Every `isPaper` branch needs explicit dual-path test coverage. Create dedicated tests for paper/live divergent behavior.
 - **Investigation-first pattern:** If a problem statement includes "intermittent," "unclear why," or "sometimes," the first task is investigation with documented findings before code changes. Do not assume the root cause.
 
+### Testing Conventions (Epic 10 Retro)
+
+- **Event wiring verification:** Every new `@OnEvent` handler MUST have a corresponding `expectEventHandled()` integration test verifying the decorator actually connects the emitter to the handler via real EventEmitter2. Use the helper in `src/common/testing/expect-event-handled.ts`. Do NOT rely on mocked EventEmitter2 for wiring verification.
+- **Collection lifecycle requirement:** Every new `Map`/`Set` in a service MUST specify its cleanup strategy in a code comment (e.g., `/** Cleanup: .delete() on X, .clear() on Y */`) AND have a test verifying the cleanup path works. Unbounded collections must have a documented bound or TTL mechanism.
+
 ## Story Design Conventions (Epic 9 Retro)
 
 - **Vertical slice minimum:** Every story that adds a backend capability MUST include at least minimal dashboard observability. An unobservable feature is an unvalidated feature. Story ACs should specify what the operator can see.

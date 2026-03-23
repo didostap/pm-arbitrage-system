@@ -205,7 +205,39 @@ development_status:
   10-4-adaptive-leg-sequencing: done # Implemented 2026-03-21: unified sizing formula (capital conservation fix), adaptive P95 latency-based sequencing, data source classification, executionMetadata JSON persistence, Polymarket poll configurability+jitter, dashboard Execution Info section, +40 unit tests (2369→2409), +5 E2E tests.
   epic-10-retrospective: done # Completed 2026-03-22. Key insights: disciplines into deliverables (Agreement #24), story sizing as integration risk indicator (#25), structural guards over review vigilance (#26). Three recurring defect classes identified (event wiring 44%, collection leaks 33%, mode contamination 22%). Pre-Epic 11 stories defined: 11-0-1 (event wiring guards), 11-0-2 (isPaper inventory), 11-0-3 (secrets spike), 11-0-4 (CLAUDE.md updates).
 
+  # EPIC 10.5: Settings Infrastructure, Structural Guards & Process Hardening
+  # Course correction 2026-03-22: move ~79 operational env vars to EngineConfig DB, expose via Settings page
+  # Course correction 2026-03-22: Epic 10 retro action items (structural guards, mode boundary, spec split, secrets spike, conventions) folded in as stories 10-5-4 through 10-5-8
+  # Capacity Budget (Agreement #22): 8 base stories, expect 10-12 total with 30-40% correction buffer
+  epic-10-5: in-progress
+  10-5-1-engine-config-schema-expansion-seed-migration: done # Code review completed 2026-03-22: fixed 11 PATCH issues (upsert create-path safety, Prisma error code detection, non-schema error re-throw, isPrismaDecimal guard, field name coverage test, standalone seed entry point, type set coverage test, empty-update skip, CONFIG_DEFAULTS dedup, per-field logging, idempotency test). CONFIG_DEFAULTS typed with satisfies for compile-time key safety. 2448→2452 tests.
+  10-5-2-settings-crud-endpoints-hot-reload-mechanics: done # Implemented 2026-03-22: Settings CRUD (GET/PATCH/POST reset), SETTINGS_METADATA registry (72 keys, 15 groups), validation DTOs (71 fields), hot-reload dispatch, event emission, WS broadcast, audit logging, bankroll audit backfill. +87 tests (2450→2537). Code review #1 (Lad MCP): fixed incomplete SERVICE_RELOAD_MAP. Code review #2 (Dev Agent 3-layer adversarial, 2026-03-22): fixed 16 PATCH issues — CRITICAL: ModuleRef-based hot-reload architecture replacing broken ReloadableService interface + registerReloadTarget (P1+P2+P3); HIGH: RiskManager FinancialDecimal+validation+env fallback (P5-P7), ExitMonitor expanded to 11 exit settings (P8), ConfigAccessor registered in DashboardModule (P4); MEDIUM: cron construct-before-delete recovery (P12), scheduler validation+leak prevention (P11), audit eventType dot-notation (P10), ConfigAccessor SystemHealthError on DB failure (P9); LOW: empty change guard (P13), String() comparison (P14), dead code+comment (P15+P16). 2537→2538 tests. TS build errors fixed: exitRiskBudgetPct cached read, seed-config CJS import.meta→require.main.
+  10-5-3-dashboard-settings-page-ui: done # Implemented 2026-03-22: Settings page with 15 collapsible sections, type-appropriate inputs, debounced inline save, reset with AlertDialog, default/override indicators, WS sync handler, localStorage collapse persistence, responsive 2-column layout. +35 component tests (vitest), +29 E2E tests (3 API + 26 UI). Code review completed 2026-03-22: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), fixed 9 PATCH issues (reset debounce race, empty-string validation, decimal range, WS external update indicator, onSettled recovery, reset-on-invalid, flash timer cleanup, empty-section guard, decimal comparison). WS E2E tests unskipped via Playwright routeWebSocket.
+  10-5-4-event-wiring-verification-collection-lifecycle-guards: done # Implemented 2026-03-23: expectEventHandled() helper (3 functions), 37-handler wiring audit (14 non-gateway + 22 gateway + dead handler check), 31-collection cleanup comments + 3 fixes + 8 tests, CLAUDE.md conventions, MEDIUM prevention analysis. +56 tests (2538→2594). Code review completed 2026-03-23: fixed 10 PATCH issues (CRITICAL removeContractTracking dead code wired into unsubscribe, array event join bug, tautological dead handler test replaced with expectNoDeadHandlers on 9 production classes, overflow test, vi.isMockFunction, 4 inaccurate/missing cleanup comments, stale header).
+  10-5-5-paper-live-mode-boundary-inventory-test-suite: backlog # Epic 10 retro action item #4. CRITICAL — blocks Epic 11.1. isPaper branch inventory, paper-live-boundary.spec.ts, mode-scoping pattern.
+  10-5-6-exit-monitor-spec-file-split: backlog # Epic 10 retro action item #5. HIGH — 69KB spec decomposed to <15KB files. No production code changes.
+  10-5-7-external-secrets-management-research-spike: backlog # Epic 10 retro action item #7. HIGH — design document, provider recommendation, credential lifecycle model. Blocks Epic 11.2.
+  10-5-8-claude-md-story-template-process-convention-updates: backlog # Epic 10 retro action items #1, #2, #6. HIGH — codify conventions from 10-5-4/10-5-5, story sizing gate, retro-as-deliverables. Depends on 10-5-4, 10-5-5.
+  epic-10-5-retrospective: optional
+
+  # EPIC 10.7: Paper Trading Profitability & Execution Quality Sprint
+  # Course correction 2026-03-23: analysis of 202 paper positions (0% profitability) revealed systemic entry/exit quality gaps
+  # Capacity Budget (Agreement #22): 9 base stories, expect 12-13 total with 30-40% correction buffer
+  epic-10-7: backlog
+  10-7-1-pre-trade-dual-leg-liquidity-gate: backlog # P0. Verify both platforms have sufficient depth before either leg submitted. Strengthens FR-EX-03.
+  10-7-2-vwap-slippage-aware-edge-calculation: backlog # P0. Replace best-bid/ask edge with VWAP-based edge at target position size. Depends on 10-7-1.
+  10-7-3-c5-exit-depth-slippage-band-correction: backlog # P0. Replace raw VWAP cutoff with configurable tolerance band in getAvailableExitDepth. Option B.
+  10-7-4-realized-pnl-computation-investigation-fix: backlog # P0. Investigation-first: 10-0-2 wiring exists but all 198 closed positions have NULL realized_pnl.
+  10-7-5-exit-execution-chunking-polymarket-liquidity: backlog # P1. Split exits into depth-matched chunks. Depends on 10-7-3.
+  10-7-6-per-pair-position-cooldown-concentration-limits: backlog # P1. Cooldown + max concurrent + diversity cap per pair. Independent.
+  10-7-7-shadow-exit-comparison-payload-fix: backlog # P1. 979 audit logs with NULL decision fields. Independent.
+  10-7-8-dynamic-minimum-edge-threshold-book-depth: backlog # P2. Edge threshold scales inversely with book depth. Depends on 10-7-2.
+  10-7-9-trading-window-analysis-time-filtering: backlog # P2. Investigation + configurable UTC trading windows. Independent.
+  epic-10-7-retrospective: optional
+
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
+  # Pre-epic stories (11-0-1 through 11-0-4) absorbed into Epic 10.5 (stories 10-5-4 through 10-5-8)
+  # Epic 10.7 (paper profitability) is an additional hard gate before Epic 11
   epic-11: backlog
   11-1-platform-connector-plugin-architecture: backlog
   11-2-external-secrets-management-integration: backlog
@@ -220,15 +252,15 @@ development_status:
   epic-12-retrospective: optional
 
 # SUMMARY STATISTICS:
-# Total Epics: 16 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle)
-# Total Stories: 112 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b)
+# Total Epics: 18 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability)
+# Total Stories: 129 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability)
 # Epics done: 14 (Epics 1-10, 4.5, 5.5, 7.5)
-# Epics in-progress: 0
-# Stories done: 112 (all done stories through Epic 10-4)
+# Epics in-progress: 1 (Epic 10.5)
+# Stories done: 116 (all done stories through Epic 10-5-4)
 # Stories in-review: 0
 # Stories ready-for-dev: 0
-# Stories backlog: 6 (Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
+# Stories backlog: 17 (Epic 10.5: 10-5-5 through 10-5-8; Epic 10.7: 10-7-1 through 10-7-9; Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 14 (Epics 1-10, 4.5, 5.5, 7.5)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10 complete. Next: Epic 11 pre-epic stories (11-0-1 through 11-0-4) then feature stories. Capacity budget: 7-8 base, expect 10-12 total with 30-40% correction buffer.
+# CURRENT: Epic 10.5 in-progress. Stories 10-5-1 through 10-5-4 done. Next: 10-5-5 (paper/live mode boundary) backlog. Epic 10.7 (paper profitability) queued after 10.5.
