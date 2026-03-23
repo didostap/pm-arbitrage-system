@@ -165,6 +165,13 @@ You will systematically re-do the entire story creation process, but with a crit
 - **Scope creep:** Missing boundaries that could cause unnecessary work
 - **Quality failures:** Missing quality requirements that could deliver broken features
 
+#### **3.6 Story Sizing Gate (Agreement #25)**
+
+- **Task count check:** Does this story exceed 10 tasks? If yes, flag for splitting.
+- **Integration boundary check:** Does this story cross 3+ integration boundaries (e.g., connector + module + dashboard + persistence)? If yes, flag for splitting.
+- **Historical evidence:** Story 10-0-1 had 7 phases, 17 tasks, and 5 CRITICAL review findings — oversized stories fragment the developer's mental model and make subsystem verification impractical.
+- **Action:** If flagged, recommend splitting into independently deployable stories before proceeding.
+
 ### **Step 4: LLM-Dev-Agent Optimization Analysis**
 
 **CRITICAL STEP: Optimize story context for LLM developer agent consumption**

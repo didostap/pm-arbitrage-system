@@ -197,6 +197,7 @@ FR-CM-01: Epic 3 - Manual contract pair curation
 FR-CM-02: Epic 8 - Semantic contract matching
 FR-CM-03: Epic 8 - Knowledge base storage
 FR-CM-04: Epic 8 - Resolution outcome feedback loop
+FR-EX-09: Epic 10.7 - Per-pair position cooldown and concentration limits
 FR-CM-05: Epic 8 - Automated cross-platform candidate discovery
 FR-PI-01: Epic 1 - Kalshi API authentication
 FR-PI-02: Epic 2 - Polymarket wallet authentication
@@ -2823,9 +2824,493 @@ _(Added: Story 6.5.5b identified that the MVP model computes leg sizes independe
 
 **Tech Debt Note (from Story 6.5.5b):** The MVP depth-aware sizing model computes primary and secondary ideal sizes independently (`reservedCapitalUsd / legPrice`), producing different contract counts. With asymmetric depth capping this divergence can widen, creating directional exposure rather than hedged arbitrage. This story's matched-count execution eliminates that limitation.
 
+### Epic 10.5: Settings Infrastructure, Structural Guards & Process Hardening
+Move operational env vars to DB-backed settings with dashboard UI. Establish structural enforcement for the three recurring defect classes identified in Epic 10 retro (event wiring, collection lifecycle, paper/live mode contamination). Codify new conventions and process gates before Epic 11 begins.
+
+## Epic 10.5: Settings Infrastructure, Structural Guards & Process Hardening
+
+Move operational env vars to DB-backed settings with dashboard UI. Establish structural enforcement for the three recurring defect classes identified in Epic 10 retro (event wiring, collection lifecycle, paper/live mode contamination). Codify new conventions and process gates before Epic 11 begins.
+
+**Capacity Budget (Agreement #22):** 8 base stories. With 30-40% correction buffer → expect 10-12 total.
+
+**Story Sequencing:**
+- Track A (sequential): 10-5-1 → 10-5-2 → 10-5-3 (settings)
+- Track B (parallel): 10-5-4, 10-5-5, 10-5-6 (structural guards — independent of Track A)
+- Track C (parallel): 10-5-7 (research spike — independent)
+- Track D (last): 10-5-8 (documentation — depends on 10-5-4, 10-5-5)
+
+### Story 10-5-1: EngineConfig Schema Expansion & Seed Migration
+
+_(Defined in sprint-change-proposal-2026-03-22.md — settings infrastructure)_
+
+### Story 10-5-2: Settings CRUD Endpoints & Hot-Reload Mechanics
+
+_(Defined in sprint-change-proposal-2026-03-22.md — settings infrastructure)_
+
+### Story 10-5-3: Dashboard Settings Page UI
+
+_(Defined in sprint-change-proposal-2026-03-22.md — settings infrastructure)_
+
+### Story 10-5-4: Event Wiring Verification & Collection Lifecycle Guards
+
+As an operator,
+I want automated verification that event emitters are connected to their subscribers and that in-memory collections have cleanup paths,
+So that the two most common silent correctness failures (44% and 33% recurrence in Epic 10) are caught by tests instead of review.
+
+**Context:** Epic 10 retro identified event wiring gaps in 4/9 stories and unbounded collection leaks in 3/9 stories. Both share the "silent correctness failure" shape — no error thrown, unit tests pass, handler logic correct in isolation. Agreement #26 mandates structural guards over review vigilance.
+
+**Acceptance Criteria:**
+
+**Given** the EventEmitter2 wiring pattern used across modules
+**When** a new `@OnEvent` handler is added
+**Then** an `expectEventHandled()` integration test helper exists that verifies: (1) the event is emitted by the expected service, (2) a handler with matching decorator exists, (3) the handler is actually invoked when the event fires through the real EventEmitter2
+
+**Given** the test helper is available
+**When** existing event wiring is audited
+**Then** all existing `@OnEvent` handlers have corresponding `expectEventHandled()` tests
+**And** any dead handlers (decorated but never triggered) are identified and removed
+
+**Given** a story introduces a new `@OnEvent` handler
+**When** the developer writes tests
+**Then** a test template exists (co-located in `common/testing/`) demonstrating the `expectEventHandled()` pattern
+**And** the story creation checklist requires event wiring tests for any story with event-driven behavior
+
+**Given** in-memory collections (Map, Set, arrays used as caches)
+**When** the codebase is audited
+**Then** every Map/Set/cache has a documented cleanup path (TTL, max-size eviction, or lifecycle-bound disposal)
+**And** CLAUDE.md documents the collection lifecycle convention: "Every new Map/Set must specify its cleanup strategy in a code comment and have a test for the cleanup path"
+
+**Given** the MEDIUM prevention analysis (retro action item #3 deliverable)
+**When** completed
+**Then** the top 3 recurring MEDIUM categories from Epic 10 code reviews are documented with structural prevention measures (not "be more careful" agreements)
+
+**Dependencies:** None (can run in parallel with settings stories)
+**Blocks:** Epic 11.1 (plugin architecture)
+
+### Story 10-5-5: Paper/Live Mode Boundary Inventory & Test Suite
+
+As an operator,
+I want every `isPaper`/`is_paper` branch in the codebase inventoried and covered by dual-mode tests,
+So that the mode contamination defect class (22% recurrence in Epic 10, including a post-deploy bug in 10.1) is structurally prevented.
+
+**Context:** Epic 10 retro identified paper/live mode contamination in 2/9 stories. Story 10.1 had a post-deploy bug where raw SQL `SELECT COUNT(*) FROM open_positions WHERE status IN (...)` did NOT filter by `is_paper`, causing 3 paper positions to trigger a LIVE halt. Story 10-0-2a fixed `validatePosition` mode-awareness but a dedicated boundary test suite was never completed (Epic 9 action item #5 — partial).
+
+**Acceptance Criteria:**
+
+**Given** the full codebase
+**When** an `isPaper`/`is_paper` branch inventory is performed
+**Then** a document lists every location where behavior diverges based on mode: service methods, repository queries, raw SQL, Prisma queries, event handlers, connectors
+**And** each location is categorized: (a) has dual-mode test coverage, (b) needs test coverage, (c) structurally cannot contaminate
+
+**Given** the inventory identifies gaps (category b)
+**When** tests are written
+**Then** a `paper-live-boundary.spec.ts` integration test file exists covering all category (b) locations
+**And** each test verifies that paper-mode operations do not affect live-mode state and vice versa
+**And** the test file is organized by module (risk, execution, exit, reconciliation, detection)
+
+**Given** Prisma repository queries that filter by mode
+**When** the inventory is complete
+**Then** all repository methods that query `open_positions`, `orders`, or `risk_states` with status filters also include `is_paper` filtering
+**And** a shared repository pattern or helper enforces mode-scoping (e.g., `withModeFilter(isPaper)` Prisma middleware or shared `where` clause builder)
+
+**Given** raw SQL queries exist in the codebase
+**When** they reference mode-sensitive tables
+**Then** every raw SQL query includes `is_paper` filtering
+**And** a code comment convention is established: `-- MODE-FILTERED` marker on compliant queries
+
+**Given** a new story introduces mode-dependent behavior
+**When** the developer writes tests
+**Then** the story creation checklist requires dual-mode test coverage for any `isPaper` branch
+**And** CLAUDE.md documents the paper/live boundary convention
+
+**Dependencies:** None (can run in parallel with settings stories and 10-5-4)
+**Blocks:** Epic 11.1 (plugin architecture — new connectors must handle mode correctly)
+
+### Story 10-5-6: Exit-Monitor Spec File Split
+
+As an operator,
+I want the 69KB exit-monitor spec file decomposed into focused test files,
+So that test maintenance burden is reduced and individual exit criteria can be tested, debugged, and modified independently.
+
+**Context:** Epic 10 retro flagged `exit-monitor.service.spec.ts` at 69KB as a maintenance burden (Medium debt). The file covers six exit criteria (C1-C6), shadow mode comparison, threshold evaluation, WebSocket data integration, and position lifecycle — all in a single file. Story 10.2 expanded it significantly. The file is too large for efficient navigation, and failures in one criterion's tests obscure failures in others.
+
+**Acceptance Criteria:**
+
+**Given** the current `exit-monitor.service.spec.ts` (69KB)
+**When** the split is complete
+**Then** the spec file is decomposed into focused files, each under 15KB
+**And** file naming follows the pattern: `exit-monitor-{concern}.spec.ts` (e.g., `exit-monitor-edge-evaporation.spec.ts`, `exit-monitor-shadow-mode.spec.ts`)
+
+**Given** the decomposed spec files
+**When** tests are run
+**Then** zero test coverage regression — all existing tests pass in their new locations
+**And** `pnpm test` reports the same number of passing exit-monitor tests before and after the split
+
+**Given** shared test setup (mocks, fixtures, helpers)
+**When** multiple spec files need the same setup
+**Then** shared setup is extracted to a `exit-monitor.test-helpers.ts` file co-located in the same directory
+**And** each spec file imports only the helpers it needs (no monolithic `beforeEach`)
+
+**Given** the six-criteria model (C1-C6)
+**When** a suggested split structure is defined
+**Then** at minimum these files exist:
+- `exit-monitor-core.spec.ts` — position lifecycle, evaluation loop, mode switching
+- `exit-monitor-edge-evaporation.spec.ts` — C1
+- `exit-monitor-confidence-drop.spec.ts` — C2
+- `exit-monitor-time-decay.spec.ts` — C3
+- `exit-monitor-risk-budget.spec.ts` — C4
+- `exit-monitor-liquidity.spec.ts` — C5
+- `exit-monitor-profit-capture.spec.ts` — C6
+- `exit-monitor-shadow-mode.spec.ts` — shadow vs fixed comparison
+
+**Given** this is a refactoring story
+**When** scope is evaluated
+**Then** no production code changes — only spec file reorganization
+**And** no new tests added (that's for feature stories)
+
+**Dependencies:** None (can run in parallel with all other 10.5 stories)
+**Blocks:** Epic 11.1 (clean test structure needed before connector changes touch exit paths)
+
+### Story 10-5-7: External Secrets Management Research Spike
+
+As an operator,
+I want a design document mapping the system's credential surface to a secrets manager integration,
+So that Story 11.2 (External Secrets Management Integration) starts with zero open architectural questions.
+
+**Context:** Epic 11 includes Story 11.2 (External Secrets Management) and Story 11.3 (Zero-Downtime Key Rotation). Both require decisions about provider selection, credential lifecycle, fallback strategy, and integration pattern. This spike produces a design document, not implementation — following the investigation-first pattern validated in Epic 10 (Story 10-0-3).
+
+**Acceptance Criteria:**
+
+**Given** the system's current credential surface
+**When** the spike is completed
+**Then** a design document exists covering:
+- Complete inventory of all credentials/secrets in the system (Kalshi API key/secret, Polymarket private key, operator Bearer token, PostgreSQL password, Telegram bot token, LLM API keys)
+- Which credentials are used at startup-only vs. runtime-refreshable
+- Current storage mechanism for each (env var, file path, in-memory)
+
+**Given** the secrets manager landscape
+**When** providers are evaluated
+**Then** the design document includes a provider comparison with recommendation:
+- AWS Secrets Manager, HashiCorp Vault, and at least one lightweight alternative (e.g., SOPS, age-encrypted files for solo operator use case)
+- Evaluation criteria: cost at solo-operator scale, complexity, SDK maturity for Node.js/NestJS, rotation support, audit logging
+- Clear recommendation with rationale
+
+**Given** the recommended provider
+**When** the integration pattern is designed
+**Then** the design document covers:
+- Credential lifecycle model: fetch → cache → use → refresh → invalidate
+- NestJS integration pattern (custom ConfigFactory, provider, or module)
+- Fallback strategy when secrets manager is unavailable (env var fallback with degraded-security alert)
+- How this interacts with Story 10-5-2's `getEffectiveConfig()` pattern (secrets are NOT in EngineConfig DB — clear boundary)
+- Key rotation mechanics: how `POST /api/admin/rotate-credentials/:platform` (Story 11.3) triggers re-fetch
+
+**Given** this is a spike
+**When** scope is evaluated
+**Then** no production code is written — output is a design document
+**And** the document is reviewed by Winston (architecture) before the spike is marked complete
+**And** the spike follows the investigation-first pattern (Team Agreement from Epic 9 retro)
+
+**Dependencies:** None (research, can run in parallel with everything)
+**Blocks:** Epic 11.2 (External Secrets Management Integration)
+
+### Story 10-5-8: CLAUDE.md, Story Template & Process Convention Updates
+
+As an operator,
+I want all Epic 10 retro conventions, structural guard patterns, and process improvements documented in CLAUDE.md and the story creation checklist,
+So that the dev agent follows these conventions automatically and Epic 11 stories are created with the new sizing and verification gates.
+
+**Context:** Epic 10 retro produced 3 new team agreements (#24 disciplines as deliverables, #25 story sizing gate, #26 structural guards over vigilance), identified 3 recurring defect classes needing conventions, and generated structural enforcement stories (10-5-4, 10-5-5) whose patterns need to be codified. This story is the documentation counterpart — encoding the new norms so they persist beyond the retro document.
+
+**Acceptance Criteria:**
+
+**Given** Story 10-5-4 delivers event wiring verification patterns
+**When** CLAUDE.md is updated
+**Then** the following conventions are documented:
+- Event wiring convention: every `@OnEvent` handler requires an `expectEventHandled()` integration test
+- Collection lifecycle convention: every new Map/Set must specify cleanup strategy in a code comment and have a test for the cleanup path
+- Top 3 MEDIUM prevention measures from the MEDIUM analysis (10-5-4 deliverable)
+
+**Given** Story 10-5-5 delivers paper/live boundary patterns
+**When** CLAUDE.md is updated
+**Then** the following conventions are documented:
+- Paper/live boundary convention: every `isPaper` branch requires dual-mode test coverage
+- Repository mode-scoping pattern (shared `withModeFilter` or equivalent from 10-5-5)
+- Raw SQL `-- MODE-FILTERED` marker convention
+
+**Given** Agreement #25 (story sizing gate)
+**When** the story creation checklist is updated
+**Then** a sizing gate is added: "Stories exceeding 10 tasks or 3+ integration boundaries are flagged for splitting"
+**And** the gate is a checklist item during story preparation, not a post-implementation observation
+
+**Given** Agreement #24 (retro commitments as deliverables)
+**When** CLAUDE.md is updated
+**Then** the retrospective section documents: "Every retro action item must be expressible as a story with ACs or a task within a story. Open-ended discipline commitments without enforcement are rejected at retro time."
+
+**Given** Agreement #26 (structural guards over review vigilance)
+**When** CLAUDE.md is updated
+**Then** the code review section documents: "If review catches the same defect category three times across an epic, it becomes a pre-epic story with structural prevention — not a 'be more careful' agreement."
+
+**Given** this story depends on patterns established by 10-5-4 and 10-5-5
+**When** sequencing is evaluated
+**Then** this story is implemented after 10-5-4 and 10-5-5 are complete (so documented patterns match actual implementation)
+
+**Dependencies:** 10-5-4 (event wiring patterns), 10-5-5 (paper/live patterns)
+**Blocks:** Epic 11 story creation (SM needs updated checklist before writing Epic 11 stories)
+
+### Epic 10.7: Paper Trading Profitability & Execution Quality Sprint
+System enters positions only when both platforms can support the trade, calculates edge using realistic VWAP fill prices, monitors exits with accurate depth metrics, and tracks P&L for every closed position.
+**FRs covered:** FR-EX-03 (strengthened), FR-EX-03a (expanded), FR-EX-09 (new), FR-EM-03 (C5 fix)
+**Additional:** realized_pnl bug fix, shadow comparison fix, dynamic edge threshold, trading windows
+
+**Context (Course Correction 2026-03-23):** Analysis of all 202 paper trading positions revealed 0% profitability. Root causes: phantom edges from thin Polymarket books, C5 depth metric VWAP circularity, missing P&L tracking, excessive pair concentration. See `sprint-change-proposal-2026-03-23-paper-profitability.md` for full evidence and analysis.
+
+**Capacity Budget (Agreement #22):** 9 base stories, expect 12-13 total with 30-40% correction buffer.
+
+## Epic 10.7: Paper Trading Profitability & Execution Quality Sprint
+
+System enters positions only when both platforms can support the trade, calculates edge using realistic VWAP fill prices, monitors exits with accurate depth metrics, and tracks P&L for every closed position.
+
+### Story 10-7-1: Pre-Trade Dual-Leg Liquidity Gate [P0]
+
+As an operator,
+I want the system to verify sufficient order book depth on both platforms before entering any position,
+So that positions are only opened when both legs can realistically execute at target size.
+
+**Context:** Current FR-EX-03 / Story 6-5-5b checks depth per-leg sequentially — primary leg is submitted before secondary depth is verified. 99.7% of 605 order failures were Polymarket insufficient liquidity. Position sizes of ~47 contracts entered against 1-6 contract deep books.
+
+**Acceptance Criteria:**
+
+**Given** an opportunity passes risk validation and is locked for execution
+**When** the execution service prepares to submit orders
+**Then** order book depth is fetched for BOTH platforms before EITHER leg is submitted
+**And** the minimum total book depth across both legs is compared against the target position size
+**And** if either leg has total depth < `DUAL_LEG_MIN_DEPTH_RATIO` × target size (configurable, default: 1.0), the opportunity is rejected
+**And** rejection emits `execution.opportunity.filtered` with reason `"insufficient dual-leg depth"` and depth details per platform
+
+**Given** both legs pass the dual-leg depth check
+**When** depth is sufficient but asymmetric
+**Then** position size is capped to the minimum of both legs' available depth
+**And** if the capped size falls below the minimum fill threshold, the opportunity is rejected
+
+**Given** the dual-leg gate is in place
+**When** a depth check API call fails on either platform
+**Then** the opportunity is rejected (fail-closed)
+**And** a `execution.depth-check.failed` event is emitted with error context
+
+**Given** the pre-trade depth gate configuration
+**When** the engine starts
+**Then** `DUAL_LEG_MIN_DEPTH_RATIO` is loaded from EngineConfig DB (default: 1.0)
+**And** the setting appears in the dashboard Settings page under "Execution" group
+
+**PRD Impact:** FR-EX-03 amended — dual-leg verification before either leg is submitted.
+
+### Story 10-7-2: VWAP Slippage-Aware Opportunity Edge Calculation [P0]
+
+As an operator,
+I want the system to calculate expected edge using VWAP fill prices at target position size,
+So that the displayed edge accurately reflects what execution would actually achieve.
+
+**Context:** Expected edge at entry averaged +3.4% but collapsed to -17.5% on recalculation. Detection uses best-level prices; execution fills across multiple levels at worse prices. `calculateVwapClosePrice()` in `financial-math.ts` already walks the book — reuse at detection stage.
+
+**Acceptance Criteria:**
+
+**Given** an opportunity is detected with a cross-platform price gap
+**When** the edge calculator computes net edge
+**Then** it uses `calculateVwapClosePrice()` to estimate fill prices for BOTH legs at the target position size
+**And** the VWAP-estimated prices replace best-bid/ask in the edge formula
+**And** the edge includes estimated fees and gas at the VWAP-estimated prices
+
+**Given** order book depth is insufficient to VWAP-price the full target size
+**When** the VWAP calculation returns a partial fill
+**Then** the edge is calculated at the partial fill VWAP
+**And** if the partial fill is below minimum fill threshold, the opportunity is filtered before risk validation
+
+**Given** a computed VWAP-based edge
+**When** it falls below the minimum edge threshold (FR-AD-03)
+**Then** the opportunity is filtered with reason `"VWAP-adjusted edge below threshold"`
+**And** both the best-level edge and VWAP-adjusted edge are logged for comparison
+
+**Depends on:** 10-7-1 (shares depth-fetching pattern)
+
+### Story 10-7-3: C5 Exit Depth Slippage Band Correction [P0]
+
+As an operator,
+I want the C5 liquidity_deterioration criterion to count depth within a configurable slippage band around VWAP,
+So that the depth metric doesn't systematically understate executable liquidity.
+
+**Context:** Confirmed VWAP circularity: `calculateVwapClosePrice()` walks the full book, blending worse prices. `getAvailableExitDepth()` uses that VWAP as a hard cutoff, excluding the liquidity that produced it. C5 fired on 93.4% of exits with detail `"Min depth 1 vs required 5"`.
+
+**Acceptance Criteria:**
+
+**Given** a position is being evaluated for exit by the C5 criterion
+**When** `getAvailableExitDepth()` computes available depth
+**Then** the price cutoff is `closePrice × (1 + EXIT_DEPTH_SLIPPAGE_TOLERANCE)` for buy-close
+**And** the price cutoff is `closePrice × (1 - EXIT_DEPTH_SLIPPAGE_TOLERANCE)` for sell-close
+**And** `EXIT_DEPTH_SLIPPAGE_TOLERANCE` defaults to 0.02 (2%) and is configurable via EngineConfig DB
+
+**Given** the slippage band is applied
+**When** depth is computed
+**Then** levels at prices within the tolerance band of VWAP are included in the depth count
+**And** levels beyond the tolerance band are excluded
+
+**Given** the configuration
+**When** the engine starts
+**Then** `EXIT_DEPTH_SLIPPAGE_TOLERANCE` appears in Settings under "Exit Strategy" group
+**And** a value of 0.0 restores the original strict-VWAP behavior (backward-compatible)
+
+### Story 10-7-4: Realized P&L Computation Investigation & Fix [P0]
+
+As an operator,
+I want `realized_pnl` accurately computed and persisted for every closed position,
+So that I can evaluate the system's actual profitability.
+
+**Context:** Story 10-0-2 (2026-03-16) claims `realizedPnl DB persistence (3 close paths)`. Database analysis (2026-03-23) shows `realized_pnl = NULL` for ALL 198 closed positions. Investigation-first pattern (Epic 9 retro convention).
+
+**Acceptance Criteria:**
+
+**Given** the existing `realized_pnl` computation code
+**When** this story is investigated
+**Then** the root cause of all-NULL values is documented before any code changes
+
+**Given** the root cause is identified
+**When** the fix is applied
+**Then** `realized_pnl` is populated for every position closed via: model-driven exit, shadow exit, manual close, auto-unwind, and close-all
+**And** the formula is: `Σ (exit_proceeds - entry_cost - fees)` across both legs using `decimal.js`
+
+**Given** positions are closed in paper mode
+**When** paper fills are simulated
+**Then** `realized_pnl` is still computed using the simulated fill prices
+
+**Given** the fix is deployed
+**When** new positions are closed
+**Then** `realized_pnl` is non-null for every closed position
+
+### Story 10-7-5: Exit Execution Chunking & Polymarket Liquidity Handling [P1]
+
+As an operator,
+I want exit orders split into smaller chunks matching available liquidity,
+So that single-leg exposure on exit is reduced.
+
+**Context:** 235 single-leg exposure events. Kalshi exits fill, Polymarket fails with "Partial exit — remainder contracts unexited" (code 2008).
+
+**Acceptance Criteria:**
+
+**Given** an exit is triggered for a position
+**When** the exit execution prepares orders
+**Then** available depth on both platforms is checked before submitting exit orders
+**And** if available depth on either platform is less than position size, the exit is chunked into smaller orders
+**And** each chunk attempts both legs before proceeding to the next
+
+**Given** a partial exit completes
+**When** the next exit evaluation cycle runs
+**Then** the position size reflects the remaining (unexited) contracts
+**And** the exit monitor continues evaluating the residual position
+
+**Given** a chunked exit where one leg fills but the other fails
+**When** single-leg exposure occurs at the chunk level
+**Then** the exposure is limited to the chunk size (not the full position)
+**And** existing auto-unwind logic (Story 10-3) handles chunk-level exposure
+
+**Given** configurable chunking
+**When** the operator sets `EXIT_MAX_CHUNK_SIZE`
+**Then** exit orders never exceed this size; default is unlimited (backward-compatible)
+
+**Depends on:** 10-7-3 (uses corrected depth metric)
+
+### Story 10-7-6: Per-Pair Position Cooldown & Concentration Limits [P1]
+
+As an operator,
+I want per-pair position frequency limits and concentration caps,
+So that the system doesn't repeatedly hammer the same thin order books.
+
+**Context:** 2 pairs = 92% of 202 positions. xAI/Text Arena: 116 positions (57%), 162 single-leg events.
+
+**Acceptance Criteria:**
+
+**Given** a position was recently opened for a specific pair
+**When** a new opportunity is detected within `PAIR_COOLDOWN_MINUTES` (default: 30)
+**Then** the opportunity is filtered with reason `"pair cooldown active"`
+
+**Given** a pair has `PAIR_MAX_CONCURRENT_POSITIONS` open positions (default: 2)
+**When** a new opportunity is detected for the same pair
+**Then** the opportunity is filtered before risk validation
+
+**Given** position diversity requirements
+**When** total open positions exceeds `PAIR_DIVERSITY_THRESHOLD` (default: 5)
+**Then** new positions only allowed for pairs below the average positions-per-pair
+
+**Given** settings
+**When** the engine starts
+**Then** all three settings in EngineConfig DB under "Risk Management" group
+
+### Story 10-7-7: Shadow Exit Comparison Event Payload Fix [P1]
+
+As an operator,
+I want shadow exit comparison audit logs to contain actual decision data,
+So that I can evaluate shadow vs. model exit performance.
+
+**Context:** Story 10-2 shadow mode. 979 `execution.exit.shadow_comparison` entries, all fields NULL.
+
+**Acceptance Criteria:**
+
+**Given** the shadow comparison service evaluates a position
+**When** it emits the comparison event
+**Then** the payload includes: `shadowDecision`, `modelDecision`, `agreement`, `positionId`, `pairId`, `currentEdge`
+**And** no fields are null when the comparison completes
+
+**Given** shadow and model disagree
+**When** the comparison is logged
+**Then** divergence detail includes triggered criteria and proximity values
+
+### Story 10-7-8: Dynamic Minimum Edge Threshold Based on Book Depth [P2]
+
+As an operator,
+I want the minimum edge threshold to scale dynamically with order book depth,
+So that higher edges are demanded for illiquid markets.
+
+**Context:** Positions entering at 1.5-2% edge are underwater after slippage on thin books.
+
+**Acceptance Criteria:**
+
+**Given** an opportunity passes the base minimum edge threshold (0.8%)
+**When** the effective threshold is calculated
+**Then** `effectiveMinEdge = baseMinEdge × (1 + DEPTH_EDGE_SCALING_FACTOR / min(kalshiDepth, polymarketDepth))`
+**And** capped at `MAX_DYNAMIC_EDGE_THRESHOLD` (default: 5%)
+
+**Given** deeply liquid markets
+**When** the threshold is calculated
+**Then** it converges to the base minimum (no penalty)
+
+**Given** configuration
+**Then** setting factor to 0 disables dynamic scaling (backward-compatible)
+
+**Depends on:** 10-7-2 (builds on VWAP edge)
+
+### Story 10-7-9: Trading Window Analysis & Time-of-Day Filtering [P2]
+
+As an operator,
+I want the system to optionally restrict trading to hours with adequate liquidity,
+So that trades are placed when books can support them.
+
+**Context:** 90% of positions opened 15:00-21:00 UTC. Investigation-first pattern.
+
+**Acceptance Criteria:**
+
+**Given** existing position data
+**When** analysis is performed
+**Then** findings document: avg depth per hour, fill success rate per hour, single-leg rate per hour
+
+**Given** suboptimal hours identified
+**When** trading windows implemented
+**Then** `TRADING_WINDOW_START_UTC` and `TRADING_WINDOW_END_UTC` configurable (default: 0-24, no restriction)
+**And** opportunities outside window filtered
+**And** open positions still monitored regardless of window
+
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07
+
+**Prerequisites (from Epic 10.5 and 10.7):** Epic 10.5 stories 10-5-4 through 10-5-8 and Epic 10.7 must be complete before feature stories begin.
 
 ## Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 
