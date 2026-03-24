@@ -3325,6 +3325,31 @@ Decompose all identified God Objects into focused, single-responsibility service
 
 **Hard Constraint:** Zero functional changes. Every story must pass the existing test suite with no behavioral modifications.
 
+**Prerequisite:** Reviewer context template (reusable template with changes summary, codebase conventions snippet, out-of-scope declaration) must be prepared and applied to all 10.8 story files in Lad MCP `context` parameter. Goal: improve 19% actionable review rate from Epic 10.7.
+
+### Story 10-8-0: God Object Decomposition Design Spike (P0 — GATE)
+
+As the architect,
+I want a single design document with method-to-service allocation tables for all 6 God Objects,
+So that all code stories (10-8-1 through 10-8-6) have an unambiguous decomposition plan reviewed and accepted before implementation begins.
+
+**Acceptance Criteria:**
+
+**Given** the 6 identified God Objects (RiskManagerService ~1,651 lines, ExitMonitorService ~1,547 lines, ExecutionService ~1,430 lines, DashboardService ~1,205 lines, TelegramMessageFormatter ~789 lines, TelegramAlertService ~734 lines)
+**When** the design spike is complete
+**Then** a single document exists with:
+- Method-to-service allocation table for each God Object (which methods move where)
+- Test file mapping plan (which spec files split and where tests migrate)
+- Constructor dependency splits (which deps go to which new service)
+- Cross-service touchpoint analysis (`closePosition()`, `releasePartialCapital()`, PnL accumulation path through chunking loop)
+- ConfigAccessor circular DI resolution paths
+**And** the document is reviewed and accepted by Arbi
+**And** no code story (10-8-1 through 10-8-6) starts until the design spike is accepted
+
+**Owner:** Winston (Architect)
+
+**Rationale:** Agreement #27 upgraded — design sketch as a story with verifiable artifact, not a soft pre-step. Failed as honor-system pre-step across two consecutive retros (10.5, 10.7).
+
 ### Story 10-8-1: RiskManagerService Decomposition (P0)
 
 As a developer,
@@ -3346,7 +3371,7 @@ So that each service has a single responsibility and is consumable by an AI agen
 ### Story 10-8-2: ExitMonitorService Decomposition (P0)
 
 As a developer,
-I want `ExitMonitorService` (1,438 lines, 10 methods, 23 config properties) decomposed into 3 focused services,
+I want `ExitMonitorService` (~1,547 lines, 10 methods, 9 constructor deps, 23 config properties) decomposed into 3 focused services,
 So that exit execution, data source management, and evaluation logic are independently testable.
 
 **Acceptance Criteria:**
@@ -3362,7 +3387,7 @@ So that exit execution, data source management, and evaluation logic are indepen
 ### Story 10-8-3: ExecutionService Decomposition (P1)
 
 As a developer,
-I want `ExecutionService` (1,395 lines, 7 methods, ~200 lines/method) decomposed into 3 focused services,
+I want `ExecutionService` (~1,430 lines, 7 methods, ~200 lines/method) decomposed into 3 focused services,
 So that sequencing strategy, depth analysis, and core execution are independently maintainable.
 
 **Acceptance Criteria:**

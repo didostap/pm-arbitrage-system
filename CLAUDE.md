@@ -270,6 +270,7 @@ If a problem statement includes "intermittent," "unclear why," or "sometimes," t
 ## Process Conventions
 
 - **Retro commitments as deliverables (#24):** Every retro action item MUST be expressible as a story with acceptance criteria or a task within a story. Open-ended discipline commitments without enforcement mechanisms are rejected at retro time.
+- **No standalone soft commitments (#30):** Every retro action item must be a story task or AC with a verifiable artifact. Extends #24. Proven by three consecutive retros (Epics 9, 10, 10.5) where soft disciplines (design sketch, naming walkthrough) drifted while story-embedded deliverables shipped 100%. If a process improvement can't be expressed as a task with a verifiable artifact, it doesn't get committed to.
 - **Structural guards over review vigilance (#26):** If code review catches the same defect category three times across an epic, it becomes a pre-epic story with structural prevention (test templates, linter rules, startup checks) — not a "be more careful" agreement.
 
 ## Development Methodology (TDD)

@@ -236,12 +236,14 @@ development_status:
   epic-10-7-retrospective: done # Completed 2026-03-24. Key insights: data-driven stories eliminate scope creep, code review needs context priming (19% actionable rate), soft disciplines fail—Agreement #30 (no standalone soft commitments). 10-8-0 design spike gates all 10.8 code stories. Profitability validation pending before 10.8.
 
   # EPIC 10.8: God Object Decomposition & Structural Refactoring
-  # Course correction 2026-03-23: codebase audit identified 6 God Objects/Files (RiskManagerService 1651 lines, ExitMonitorService 1438, ExecutionService 1395, DashboardService 1205, TelegramMessageFormatter 789, TelegramAlertService 734)
+  # Course correction 2026-03-23: codebase audit identified 6 God Objects/Files (RiskManagerService 1651 lines, ExitMonitorService 1438→~1547, ExecutionService 1395→~1430, DashboardService 1205, TelegramMessageFormatter 789, TelegramAlertService 734)
+  # Course correction 2026-03-24 (Epic 10.7 retro): added 10-8-0 design spike gate, updated line counts, reviewer context template prerequisite
   # Zero functional changes — pure internal refactoring. Hard gate before Epic 11.
-  epic-10-8: backlog
-  10-8-1-risk-manager-service-decomposition: backlog # P0. Split 1651-line/34-method/6-responsibility God Object into BudgetReservationService + TradingHaltService + RiskStateManager + slimmed RiskManagerService.
-  10-8-2-exit-monitor-service-decomposition: backlog # P0. Split 1438-line service into ExitExecutionService + ExitDataSourceService + slimmed ExitMonitorService.
-  10-8-3-execution-service-decomposition: backlog # P1. Split 1395-line service into LegSequencingService + DepthAnalysisService + slimmed ExecutionService. Depends on 10-8-1.
+  epic-10-8: in-progress
+  10-8-0-god-object-decomposition-design-spike: done # P0 GATE. Design doc with method-to-service allocation tables for all 6 God Objects. Owner: Winston. Must be accepted by Arbi before any code story starts. Agreement #27 upgraded. Story created 2026-03-24. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 54 raw findings triaged to 16 patch + 1 bad-spec + 3 defer + 7 reject. All 20 actionable items fixed: event names corrected against codebase (position.closed→risk.budget.released, 7 more), RISK_MANAGER_TOKEN consumers expanded (5→9), state mutation API defined (TradingHaltService protocol, RiskStateManager.decrementOpenPositions/adjustCapitalDeployed), @OnEvent handler analysis added (Section 5.9), event table expanded (9→17), getClosePrice/resolveConnectors ownership resolved, constructor dep tables corrected (DashboardOverviewService, DepthAnalysisService), module provider mitigation plan added, concrete God Method refactoring plans added, rollback strategy added. Accepted by Arbi 2026-03-24.
+  10-8-1-risk-manager-service-decomposition: done # P0. Split 1651-line/34-method/6-responsibility God Object into BudgetReservationService + TradingHaltService + RiskStateManager + slimmed RiskManagerService. Implemented 2026-03-24: 4 focused services (RSM 617, THS 80, BRS 388, RMS 653 lines), all constructor deps ≤5, module providers = 8, zero functional changes, 2842 tests pass. Lad MCP code review: 9 findings rejected (all pre-existing patterns). 3-layer adversarial code review (Blind Hunter + Edge Case Hunter + Acceptance Auditor) 2026-03-24: 32 raw findings triaged to 3 bad-spec + 6 defer + 3 reject. All 9 actionable items fixed: D1 reservation data provider callback (eliminates zero-persist + double-persist), D2 incrementOpenPositions method, D3 getClusterLimits replaces service locator, D4 halt.utils shared halt/resume functions, D5 paperActivePairIds isPaper guard bug fix, D6 THS injection into BRS for halt checks, BS1 config validation extraction, BS2 cluster validation private method, BS3 task checkbox fix. Final: RSM 609, THS 57, BRS 391, RMS 692 lines. All 2852 tests pass (10 new halt.utils tests).
+  10-8-2-exit-monitor-service-decomposition: backlog # P0. Split ~1547-line/9-dep service into ExitExecutionService + ExitDataSourceService + slimmed ExitMonitorService. Updated from 1438 lines post-10.7.
+  10-8-3-execution-service-decomposition: backlog # P1. Split ~1430-line service into LegSequencingService + DepthAnalysisService + slimmed ExecutionService. Updated from 1395 lines post-10.7. Depends on 10-8-1.
   10-8-4-dashboard-service-decomposition: backlog # P1. Split 1205-line gateway God Object into DashboardOverviewService + DashboardCapitalService + DashboardAuditService + slimmed DashboardService. Depends on 10-8-1, 10-8-2, 10-8-3.
   10-8-5-telegram-message-formatter-domain-split: backlog # P2. Split 789-line/31-function God File into 7 domain formatter files + utils. Independent.
   10-8-6-telegram-circuit-breaker-extraction: backlog # P2. Extract circuit breaker from 734-line TelegramAlertService. Independent.
@@ -265,14 +267,15 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 19 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition)
-# Total Stories: 135 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +6 Epic 10.8 refactoring)
+# Total Stories: 136 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike)
 # Epics done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
-# Epics in-progress: 0
+# Epics in-progress: 1 (Epic 10.8)
 # Stories done: 129 (all done stories through Epic 10.7)
-# Stories in-review: 0
+# Stories in-review: 1 (10-8-1)
+# Stories in-review: 1 (10-8-1)
 # Stories ready-for-dev: 0
 # Stories backlog: 9 (Epic 10.8: 10-8-1 through 10-8-6; Epic 11: 11-1, 11-2, 11-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.7 done — profitability validation in progress. Epic 10.8 (God Object decomposition) next — blocked on 10-8-0 design spike (not yet created). Sequence: 10.8 → 11.
+# CURRENT: Epic 10.8 in-progress (2026-03-24). Story 10-8-1 in review. Sequence: 10.8 → 11.
