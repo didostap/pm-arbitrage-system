@@ -3318,6 +3318,8 @@ System supports new platform connectors without core changes, external secrets m
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07
 
 **Prerequisites (from Epic 10.5, 10.7, and 10.8):** Epic 10.5 stories 10-5-4 through 10-5-8, Epic 10.7, and Epic 10.8 must be complete before feature stories begin.
+**Note:** Epic 10.9 (backtesting calibration) has no architectural dependency on Epic 11. Current sequencing (10.9 → 11) is a focus preference, not a hard gate. Can be parallelized if capacity allows.
+**Tech debt to address in Epic 11 pre-epic:** ConfigModule extraction (Medium — DashboardModule 13 providers, ExecutionModule 15 providers), ConfigAccessor inconsistency (Low — 7+ services still using configService.get()).
 
 ## Epic 10.8: God Object Decomposition & Structural Refactoring
 
@@ -3470,6 +3472,43 @@ Ingest historical prediction market data from multiple sources (platform APIs, P
 **Scope boundary:** Calibration-focused analysis module. NOT a full replay engine through the live pipeline (ReplayConnector — deferred to Phase 2).
 
 **Capacity Budget (Agreement #22):** 7 base stories, expect 9-10 total with 30-40% correction buffer.
+
+### Story 10-9-0: Backtesting & Calibration Design Spike (P0 — GATE)
+
+As the architect,
+I want a design document covering data source integration, persistence strategy, and backtest engine architecture,
+So that all code stories (10-9-1a through 10-9-6) have validated assumptions and no open architectural questions.
+
+**Context:** Epic 10.8 retro defined this story as critical path. Follows the investigation-first pattern validated across three epics (10-0-3, 10-8-0). New external dependencies (OddsPipe, Predexon, PMXT Archive, Goldsky subgraph) each carry API integration risk.
+
+**Acceptance Criteria:**
+
+**Given** the data source strategy in the epic description
+**When** the design spike is complete
+**Then** a design document exists covering:
+1. Data source API verification (actual endpoint testing: Kalshi `/candlesticks`, `/historical/trades`, `/historical/cutoff`; Polymarket `/prices-history`; Goldsky subgraph schema; PMXT Archive Parquet format; OddsPipe API; Predexon API)
+2. Data persistence strategy (Postgres vs. flat files vs. hybrid; Prisma model fit for time-series data)
+3. Common schema design for normalized historical data (prices, trades, depth snapshots)
+4. Backtest engine state machine architecture
+5. Test fixture strategy with deterministic datasets and known expected outcomes
+6. Story sizing review with explicit split assessment on 10-9-3 (Backtest Simulation Engine)
+7. Minimum viable calibration section — the cut line if scope pressure hits
+8. Spec file naming map for all new modules
+9. Reviewer context template for 10.9 stories
+
+**Given** CLAUDE.md convention updates pending from Epic 10.8 retro
+**When** the design spike document is finalized
+**Then** CLAUDE.md is updated with:
+- Constructor dependency dual threshold: leaf services ≤5, facades ≤8 (with mandatory rationale comment for exceptions)
+- Line count dual metric: 600 formatted = review trigger, 400 logical = hard gate (documented exceptions require Prettier rationale AND logical count under 400)
+
+**Given** this is a gate story
+**When** the document is complete
+**Then** it is reviewed and accepted by Arbi before any code story (10-9-1a through 10-9-6) starts
+
+**Owner:** Winston (Architect)
+**Dependencies:** None
+**Blocks:** All 10.9 code stories (10-9-1a through 10-9-6)
 
 ### Story 10-9-1a: Platform API Price & Trade Ingestion (P0)
 

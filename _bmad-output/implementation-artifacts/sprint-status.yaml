@@ -1,4 +1,5 @@
-# generated: 2026-02-17T00:00:00Z
+# generated: 2026-03-26T00:00:00Z
+# last_updated: 2026-03-28T12:00:00Z
 # project: pm-arbitrage-system
 # project_key: NOKEY
 # tracking_system: file-system
@@ -253,20 +254,27 @@ development_status:
   # Course correction 2026-03-25: backtesting moved from PRD "Outside System Scope" to Phase 1 after 0% paper trading profitability (202 positions) revealed unvalidated parameters
   # Data sources: OddsPipe (matched pairs), Predexon ($49/mo cross-ref), PMXT Archive (hourly L2 Parquet), platform APIs (Kalshi candlesticks + Polymarket prices-history + Goldsky subgraph)
   # Scope: calibration-focused analysis, NOT full replay engine (ReplayConnector deferred to Phase 2)
+  # GATE: 10-9-0 design spike (Winston, Arbi review) + profitability validation data (Arbi) required before any code story starts
+  # Decision fork: positive edge subset → proceed; still 0% → diagnose detection model vs parameters
   # Capacity Budget (Agreement #22): 7 base stories, expect 9-10 total with 30-40% correction buffer
-  epic-10-9: backlog
-  10-9-1a-platform-api-price-trade-ingestion: backlog # P0. Kalshi /candlesticks + /historical/trades, Polymarket /prices-history + Goldsky subgraph, poly_data bootstrap, common schema, PostgreSQL persistence, idempotency, rate limiting, data quality checks.
-  10-9-1b-depth-data-third-party-ingestion: backlog # P0. PMXT Archive Parquet (hourly Polymarket L2 snapshots), OddsPipe OHLCV (supplementary). Coverage gap detection, freshness tracking.
-  10-9-2-cross-platform-pair-matching-validation: backlog # P0. Cross-ref our ContractMatch against OddsPipe (2,500+ pairs) + Predexon (99%+ accuracy). Validation report: confirmed, our-only, external-only, conflicts.
-  10-9-3-backtest-simulation-engine-core: backlog # P0. Parameterized replay: detection model + VWAP sizing + fee-adjusted cost model + exit criteria. Conservative fill assumptions (taker-only, no market impact). Resolution-date force-close.
-  10-9-4-calibration-report-sensitivity-analysis: backlog # P0. Summary metrics, recommended params, bootstrap CIs, parameter sweep (profit factor/drawdown/Sharpe), degradation boundaries, walk-forward out-of-sample validation (70/30 default), overfit detection (>30% degradation), known limitations section.
-  10-9-5-backtest-dashboard-page: backlog # P1. Configure/trigger/review backtests. Sensitivity charts, walk-forward mode, overfit warnings, run comparison, DataTable+URL state patterns.
-  10-9-6-historical-data-freshness-incremental-updates: backlog # P1. Daily cron incremental fetch, PMXT/OddsPipe/Predexon refresh, Kalshi cutoff handling, stale data warnings, dashboard freshness indicators.
+  epic-10-9: in-progress
+  10-9-0-backtesting-design-spike: done # P0 GATE. Completed 2026-03-26. Design doc accepted after 3-layer adversarial code review (20 fixes applied) + Arbi gate review. Key additions: ingestion scoped to matched pairs only (union of ContractMatch + third-party), Goldsky derivation algorithm, exitProfitCapturePct decimal convention, NormalizedHistoricalDepth adapter, HistoricalDepth/Trade unique constraints fixed, DataCatalog model added, 10 known limitations. Constructor dep threshold + line count metric in CLAUDE.md.
+  10-9-1a-platform-api-price-trade-ingestion: done # P0. Kalshi /candlesticks + /historical/trades, Polymarket /prices-history + Goldsky subgraph, poly_data bootstrap, common schema, PostgreSQL persistence, idempotency, rate limiting, data quality checks.
+  10-9-1b-depth-data-third-party-ingestion: done # P0. Completed 2026-03-27. PmxtArchiveService (Parquet download/parse/persist), OddsPipeService (OHLCV fetch/normalize), DataQualityService depth extensions (assessDepthQuality, assessFreshness, assessCrossSourceDeviation), orchestrator integration, controller depth coverage endpoints. 57 tests + 7 review fixes = 64 tests. Code review completed 2026-03-27: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 47 raw findings triaged to 1 intent-gap + 1 bad-spec + 19 patch + 4 defer + 5 reject. All 21 actionable items fixed: P1 API key rotated, orchestrator decomposed (IngestionQualityAssessorService extracted, 483→273 logical lines), P2 memory safety (per-file sampling, column filtering, Transform stream checksum), correctness (relative spread, crossed book detection, bid sort order, timestamp magnitude, platform casing, source filter, market matching threshold, null caching, cross-source deviation AC#5). 3101 tests pass.
+  10-9-2-cross-platform-pair-matching-validation: done # P0. Completed 2026-03-27. Cross-ref ContractMatch against OddsPipe (2,500+ pairs) + Predexon (99%+ accuracy). 2 new services, 1 extended service, 1 controller, 1 Prisma model. Code review completed 2026-03-27: 3-layer adversarial, 69 raw findings triaged to 0 intent-gap + 1 bad-spec + 20 patch + 10 defer + 13 reject. All 20 actionable items fixed: P0 correlationId passthrough, cross-external conflict detection (row 10), ValidationReportResponseDto, getEffectiveSources runtime fix; P1 type-safe fetchJsonWithRetry, pagination, configurable threshold, warn logging, SystemError hierarchy, duplicate ID warnings, pagination guard, response validation (both APIs); P2 ParseIntPipe, timeout test, stop words, key separator, test coverage. 3167 tests pass (66 new total).
+  10-9-3-backtest-simulation-engine-core: done # P0. Completed 2026-03-27. Parameterized replay: detection model + VWAP sizing + fee-adjusted cost model + exit criteria. Conservative fill assumptions (taker-only, no market impact). Resolution-date force-close. Code review completed 2026-03-27: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 78 raw findings triaged to 0 intent-gap + 2 bad-spec + 40 patch + 2 defer + 7 reject. All 40 actionable items fixed: P0 singleton portfolio→per-run Map, PROFIT_CAPTURE logic inversion, resolution force-close prices, missing ValidationPipe, common/→modules/ import violation, BacktestEngineService decomposed (BacktestStateMachineService extracted, 742→641+252 lines); P1 configService string parse, dual-platform depth/resolution checks, dynamic Kalshi fee, static import, cancel race condition, minConfidenceScore filtering, failRun double-fault guard, DB/memory state order, runStatuses cleanup, limit caps, position pagination, 6 placeholder tests replaced; P2 JSONB guards, timestamp minute truncation, bankroll validation, cleanup comments, holdingHours guard. 3302 tests pass.
+  10-9-4-calibration-report-sensitivity-analysis: done # P0. Completed 2026-03-27. Summary metrics, recommended params, bootstrap CIs, parameter sweep (profit factor/drawdown/Sharpe), degradation boundaries, walk-forward out-of-sample validation (70/30 default), overfit detection (>30% degradation), known limitations section. Code review completed 2026-03-27: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 48 raw findings triaged to 3 intent-gap + 0 bad-spec + 15 patch + 7 defer + 9 reject. All 18 actionable items fixed: IG walk-forward pipeline integration into executePipeline (3-pass simulation), CalibrationReportService auto-call in GENERATING_REPORT phase, sensitivity progress events; P1 fire-and-forget error swallowing + 409 Conflict, headless stateMachine.failRun on non-existent run, computeDegradation inverted for negative values, baseConfig validation, bankroll silent default, generateRange float drift + OOM guard, maxConcurrentPairsRange upper bound, degradation boundary direction + bidirectional crossing, winRate Decimal, any types replaced, deterministic bootstrap tests, BacktestEngineService decomposed (edge-calculation.utils + fee-schedules extracted, 749→652 lines). 3423 tests pass.
+  10-9-5-backtest-dashboard-page: done # P1. Completed 2026-03-28. Backtest dashboard page with history list, config dialog, detail page with tabs (Summary/Sensitivity/Walk-Forward/Positions), sensitivity charts (Recharts), walk-forward analysis, run comparison, known limitations. 131 dashboard tests pass (96 new), 16 engine gateway tests (3 new). Code review completed 2026-03-28: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 40 raw findings triaged to 1 intent-gap + 1 bad-spec + 15 patch + 5 defer + 13 reject. All 17 actionable items fixed: IG-1 URL state sync, BS-1 AC#2 amended, P-1 status filter backend+frontend, P-2 running filter all states, P-3 zero-value data transform, P-4 dialog form reset, P-5 null metrics guard, P-6 comparison error handling, P-7 numeric validation, P-8 date ordering, P-9 WS toast fallback, P-10 Invalid Date guard, P-11 connectNulls removed, P-12 selection reset, P-13 numeric inputs, P-14 NaN guard, P-15 progress bar test. 131 dashboard tests pass. 3426 engine tests pass.
+  10-9-1a-fix-kalshi-live-partition-routing: done # P0 HOTFIX. Completed 2026-03-28. Dual-partition routing: historical endpoints (pre-cutoff) + live endpoints (post-cutoff, _dollars fields). 22 new tests (39 total). Code review completed 2026-03-28: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 28 raw findings triaged to 1 bad-spec + 4 patch + 6 defer + 10 reject. All 5 actionable items fixed: BS-1 cutoff boundary exclusivity (subtract 1s from historical effectiveEnd when spanning), P-1 fetchLiveCandlesticks/fetchLiveTrades restructured to write per-chunk/per-page (eliminate memory accumulation), P-2 AC7 test label corrected + shared rate-limiter test added, P-3 Unix seconds timestamp param assertions added, P-4 ingestTrades start===cutoff boundary test added. 3450 tests pass.
+  10-9-6-historical-data-freshness-incremental-updates: backlog # P1. Daily cron incremental fetch, PMXT/OddsPipe/Predexon refresh, Kalshi cutoff handling (simplified after 10-9-1a-fix), stale data warnings, dashboard freshness indicators.
   epic-10-9-retrospective: optional
 
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
   # Pre-epic stories (11-0-1 through 11-0-4) absorbed into Epic 10.5 (stories 10-5-4 through 10-5-8)
-  # Epic 10.7 (paper profitability), Epic 10.8 (God Object decomposition), and Epic 10.9 (backtesting calibration) are hard gates before Epic 11
+  # Epic 10.7 (paper profitability) and Epic 10.8 (God Object decomposition) are hard gates before Epic 11
+  # Epic 10.9 (backtesting calibration) is sequencing preference, not hard dependency — can be parallelized if needed
+  # Tech debt carry-forward: ConfigModule extraction (Medium, DashboardModule 13 providers / ExecutionModule 15), ConfigAccessor inconsistency (Low, 7+ services)
+  # Monitor: ExecutionService 1,024 lines, ExitMonitorService 914 lines — reassess if touched
   epic-11: backlog
   11-1-platform-connector-plugin-architecture: backlog
   11-2-external-secrets-management-integration: backlog
@@ -282,14 +290,14 @@ development_status:
 
 # SUMMARY STATISTICS:
 # Total Epics: 20 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition, Epic 10.9 backtesting calibration)
-# Total Stories: 143 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike, +7 Epic 10.9 backtesting calibration)
+# Total Stories: 144 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike, +8 Epic 10.9 backtesting calibration incl. 10-9-1a-fix course correction)
 # Epics done: 17 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8)
-# Epics in-progress: 0
-# Stories done: 138 (all done stories through Epic 10.8-6)
+# Epics in-progress: 1 (Epic 10.9)
+# Stories done: 147 (all done stories through Epic 10-9-5)
 # Stories in-progress: 0
-# Stories ready-for-dev: 0
-# Stories backlog: 10 (Epic 10.9: 10-9-1a through 10-9-6; Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
+# Stories ready-for-dev: 1 (10-9-1a-fix)
+# Stories backlog: 4 (Epic 10.9: 10-9-6; Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 17 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.8 done (2026-03-25). Next: Epic 10.9 (backtesting calibration). Sequence: 10.9 → 11 → 12. Gated by: 10-9-0 design spike + profitability validation.
+# CURRENT: Epic 10.9 in-progress. Next story: 10-9-1a-fix (P0 hotfix — Kalshi live partition routing, course correction 2026-03-28). Then: 10-9-6 → Epic 11 → 12. After 10-9-1a-fix: re-run ingestion + backtests for accurate calibration.

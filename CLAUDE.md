@@ -91,8 +91,13 @@ A God object is a class that accumulates too many responsibilities. A God file i
 **Rules:**
 
 - **Services:** A single service class must not exceed ~300 lines (excluding imports and type declarations). If it does, it is accumulating responsibilities that should be separate services composed via DI.
-- **Files:** No single `.ts` file should exceed ~400 lines. Long files signal mixed concerns — split into focused units.
-- **Injected dependencies:** A constructor injecting more than 5 dependencies is a smell. It likely orchestrates too many concerns and should be decomposed or fronted by a facade that delegates to focused sub-services.
+- **Files — dual metric:** Two thresholds apply to every `.ts` file:
+  - **600 formatted lines = review trigger.** The file must be flagged in code review for potential decomposition. It may remain intact if the reviewer confirms all logic belongs together.
+  - **400 logical lines = hard gate.** Logical lines exclude blank lines, comments, import statements, and closing braces. If a file exceeds 400 logical lines, it **must** be split before merge. Exceptions require: (a) a documented Prettier formatting rationale (e.g., long object literals inflating formatted count) AND (b) the logical line count must remain under 400.
+- **Injected dependencies — dual threshold:** Constructor injection limits depend on service role:
+  - **Leaf services (business logic): <=5 dependencies.** These services implement focused domain logic. More than 5 deps indicates mixed concerns — decompose.
+  - **Facade/orchestrator services: <=8 dependencies.** These services coordinate multiple sub-services (e.g., `TradingLoopOrchestrator`, `IngestionOrchestrator`). The higher limit reflects their coordination role.
+  - **Exceptions:** Any constructor exceeding its threshold requires a mandatory rationale comment above the constructor explaining why the additional dependency is necessary and cannot be decomposed. Example: `/** 6 deps rationale: X requires direct access to Y for Z reason */`
 - **Module scope:** Each NestJS module owns one bounded context. If a module's `providers` array exceeds ~8 services, evaluate whether it has absorbed a second responsibility that warrants its own module.
 - **Utility grab-bags:** `utils.ts`, `helpers.ts`, or `common.ts` files that collect unrelated functions are God files in disguise. Group utilities by domain (e.g., `time.utils.ts`, `crypto.utils.ts`) and keep each focused.
 - **Detection during review:** If a PR adds >50 lines to an existing service or file that is already near the limits above, the reviewer must flag it for decomposition before merge — not after.
