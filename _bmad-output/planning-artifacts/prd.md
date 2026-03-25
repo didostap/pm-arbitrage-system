@@ -332,10 +332,10 @@ Paper trading is a permanent, platform-agnostic capability — not a transient d
 
 **Out of scope (future consideration):**
 
-- Historical replay / backtesting engine (replay recorded order books through paper trading)
+- Full historical replay engine (replay recorded order books through live pipeline via ReplayConnector)
 - Paper trading analytics dashboard (dedicated views beyond position tagging)
 
-**Backtesting (Outside System Scope):** Historical data analysis validating arbitrage thesis, estimating edge magnitude, testing detection logic on past dislocations. Completed manually using historical order book data. Outputs inform parameter selection (minimum edge threshold, position sizing, expected opportunity frequency).
+**Backtesting & System Calibration [Phase 1]:** Historical data analysis validating arbitrage thesis, estimating edge magnitude, and calibrating system parameters against empirical market data. Ingests historical price, depth, and trade data from Polymarket and Kalshi (via platform APIs and third-party aggregators). Outputs parameter calibration reports with recommended values, confidence intervals, and sensitivity analysis for: minimum edge threshold, position sizing ratios, exit criteria weights, trading window selection, and expected opportunity frequency. Dashboard page for running backtests and reviewing calibration results.
 
 **Core Features:**
 

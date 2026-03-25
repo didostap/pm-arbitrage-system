@@ -242,16 +242,31 @@ development_status:
   epic-10-8: in-progress
   10-8-0-god-object-decomposition-design-spike: done # P0 GATE. Design doc with method-to-service allocation tables for all 6 God Objects. Owner: Winston. Must be accepted by Arbi before any code story starts. Agreement #27 upgraded. Story created 2026-03-24. Code review completed 2026-03-24: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 54 raw findings triaged to 16 patch + 1 bad-spec + 3 defer + 7 reject. All 20 actionable items fixed: event names corrected against codebase (position.closed→risk.budget.released, 7 more), RISK_MANAGER_TOKEN consumers expanded (5→9), state mutation API defined (TradingHaltService protocol, RiskStateManager.decrementOpenPositions/adjustCapitalDeployed), @OnEvent handler analysis added (Section 5.9), event table expanded (9→17), getClosePrice/resolveConnectors ownership resolved, constructor dep tables corrected (DashboardOverviewService, DepthAnalysisService), module provider mitigation plan added, concrete God Method refactoring plans added, rollback strategy added. Accepted by Arbi 2026-03-24.
   10-8-1-risk-manager-service-decomposition: done # P0. Split 1651-line/34-method/6-responsibility God Object into BudgetReservationService + TradingHaltService + RiskStateManager + slimmed RiskManagerService. Implemented 2026-03-24: 4 focused services (RSM 617, THS 80, BRS 388, RMS 653 lines), all constructor deps ≤5, module providers = 8, zero functional changes, 2842 tests pass. Lad MCP code review: 9 findings rejected (all pre-existing patterns). 3-layer adversarial code review (Blind Hunter + Edge Case Hunter + Acceptance Auditor) 2026-03-24: 32 raw findings triaged to 3 bad-spec + 6 defer + 3 reject. All 9 actionable items fixed: D1 reservation data provider callback (eliminates zero-persist + double-persist), D2 incrementOpenPositions method, D3 getClusterLimits replaces service locator, D4 halt.utils shared halt/resume functions, D5 paperActivePairIds isPaper guard bug fix, D6 THS injection into BRS for halt checks, BS1 config validation extraction, BS2 cluster validation private method, BS3 task checkbox fix. Final: RSM 609, THS 57, BRS 391, RMS 692 lines. All 2852 tests pass (10 new halt.utils tests).
-  10-8-2-exit-monitor-service-decomposition: backlog # P0. Split ~1547-line/9-dep service into ExitExecutionService + ExitDataSourceService + slimmed ExitMonitorService. Updated from 1438 lines post-10.7.
+  10-8-2-exit-monitor-service-decomposition: review # P0. Split ~1547-line/9-dep service into ExitExecutionService + ExitDataSourceService + slimmed ExitMonitorService. Updated from 1438 lines post-10.7. Story created 2026-03-25. Implemented 2026-03-25: 3 services (EDS 181, EES 743, EMS 915 lines), 7 module providers, zero functional changes, 2871 tests pass (37 new, 18 migrated to new specs).
   10-8-3-execution-service-decomposition: backlog # P1. Split ~1430-line service into LegSequencingService + DepthAnalysisService + slimmed ExecutionService. Updated from 1395 lines post-10.7. Depends on 10-8-1.
   10-8-4-dashboard-service-decomposition: backlog # P1. Split 1205-line gateway God Object into DashboardOverviewService + DashboardCapitalService + DashboardAuditService + slimmed DashboardService. Depends on 10-8-1, 10-8-2, 10-8-3.
   10-8-5-telegram-message-formatter-domain-split: backlog # P2. Split 789-line/31-function God File into 7 domain formatter files + utils. Independent.
   10-8-6-telegram-circuit-breaker-extraction: backlog # P2. Extract circuit breaker from 734-line TelegramAlertService. Independent.
   epic-10-8-retrospective: optional
 
+  # EPIC 10.9: Backtesting & System Calibration (Phase 1)
+  # Course correction 2026-03-25: backtesting moved from PRD "Outside System Scope" to Phase 1 after 0% paper trading profitability (202 positions) revealed unvalidated parameters
+  # Data sources: OddsPipe (matched pairs), Predexon ($49/mo cross-ref), PMXT Archive (hourly L2 Parquet), platform APIs (Kalshi candlesticks + Polymarket prices-history + Goldsky subgraph)
+  # Scope: calibration-focused analysis, NOT full replay engine (ReplayConnector deferred to Phase 2)
+  # Capacity Budget (Agreement #22): 7 base stories, expect 9-10 total with 30-40% correction buffer
+  epic-10-9: backlog
+  10-9-1a-platform-api-price-trade-ingestion: backlog # P0. Kalshi /candlesticks + /historical/trades, Polymarket /prices-history + Goldsky subgraph, poly_data bootstrap, common schema, PostgreSQL persistence, idempotency, rate limiting, data quality checks.
+  10-9-1b-depth-data-third-party-ingestion: backlog # P0. PMXT Archive Parquet (hourly Polymarket L2 snapshots), OddsPipe OHLCV (supplementary). Coverage gap detection, freshness tracking.
+  10-9-2-cross-platform-pair-matching-validation: backlog # P0. Cross-ref our ContractMatch against OddsPipe (2,500+ pairs) + Predexon (99%+ accuracy). Validation report: confirmed, our-only, external-only, conflicts.
+  10-9-3-backtest-simulation-engine-core: backlog # P0. Parameterized replay: detection model + VWAP sizing + fee-adjusted cost model + exit criteria. Conservative fill assumptions (taker-only, no market impact). Resolution-date force-close.
+  10-9-4-calibration-report-sensitivity-analysis: backlog # P0. Summary metrics, recommended params, bootstrap CIs, parameter sweep (profit factor/drawdown/Sharpe), degradation boundaries, walk-forward out-of-sample validation (70/30 default), overfit detection (>30% degradation), known limitations section.
+  10-9-5-backtest-dashboard-page: backlog # P1. Configure/trigger/review backtests. Sensitivity charts, walk-forward mode, overfit warnings, run comparison, DataTable+URL state patterns.
+  10-9-6-historical-data-freshness-incremental-updates: backlog # P1. Daily cron incremental fetch, PMXT/OddsPipe/Predexon refresh, Kalshi cutoff handling, stale data warnings, dashboard freshness indicators.
+  epic-10-9-retrospective: optional
+
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
   # Pre-epic stories (11-0-1 through 11-0-4) absorbed into Epic 10.5 (stories 10-5-4 through 10-5-8)
-  # Epic 10.7 (paper profitability) and Epic 10.8 (God Object decomposition) are additional hard gates before Epic 11
+  # Epic 10.7 (paper profitability), Epic 10.8 (God Object decomposition), and Epic 10.9 (backtesting calibration) are hard gates before Epic 11
   epic-11: backlog
   11-1-platform-connector-plugin-architecture: backlog
   11-2-external-secrets-management-integration: backlog
@@ -266,16 +281,15 @@ development_status:
   epic-12-retrospective: optional
 
 # SUMMARY STATISTICS:
-# Total Epics: 19 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition)
-# Total Stories: 136 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike)
+# Total Epics: 20 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition, Epic 10.9 backtesting calibration)
+# Total Stories: 143 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike, +7 Epic 10.9 backtesting calibration)
 # Epics done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
 # Epics in-progress: 1 (Epic 10.8)
-# Stories done: 129 (all done stories through Epic 10.7)
-# Stories in-review: 1 (10-8-1)
-# Stories in-review: 1 (10-8-1)
+# Stories done: 131 (all done stories through Epic 10.8-1)
+# Stories in-progress: 1 (10-8-2)
 # Stories ready-for-dev: 0
-# Stories backlog: 9 (Epic 10.8: 10-8-1 through 10-8-6; Epic 11: 11-1, 11-2, 11-3)
+# Stories backlog: 17 (Epic 10.8: 10-8-3 through 10-8-6; Epic 10.9: 10-9-1a through 10-9-6; Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 16 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.8 in-progress (2026-03-24). Story 10-8-1 in review. Sequence: 10.8 → 11.
+# CURRENT: Epic 10.8 in-progress (2026-03-25). Sequence: 10.8 → 10.9 → 11 → 12.

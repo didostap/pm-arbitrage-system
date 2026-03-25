@@ -286,7 +286,7 @@ interface IPlatformConnector {
 
 **Test Location:** Co-located with source files. `risk-manager.service.ts` → `risk-manager.service.spec.ts` in the same directory. E2E tests in `/test/` at project root. NestJS convention.
 
-**Module Organization:** Feature-based, matching PRD's 5 core modules:
+**Module Organization:** Feature-based, matching PRD's core modules:
 ```
 src/
   modules/
@@ -295,6 +295,9 @@ src/
     execution/
     risk-management/
     monitoring/
+    exit-management/
+    contract-matching/
+    backtesting/
   connectors/
     kalshi/
     polymarket/
@@ -611,6 +614,7 @@ modules/exit-management/ → connectors/ (exit orders), modules/risk-management/
 modules/monitoring/ → persistence/ (audit logs, reports), common/events/ (subscribes to all)
 modules/contract-matching/ → persistence/ (knowledge base CRUD)
 modules/contract-matching/ → connectors/ (catalog sync via IContractCatalogProvider)
+modules/backtesting/ → common/financial-math/ (edge calculation, fee modeling, VWAP, position sizing — shared with live pipeline), persistence/ (historical data storage, backtest run persistence), common/types/ (NormalizedOrderBook, Opportunity)
 All modules → common/ (interfaces, errors, events, types, constants)
 dashboard/ → modules/monitoring/ (event subscription for WebSocket push)
 persistence/ → prisma/ (database access)
@@ -657,6 +661,25 @@ connectors/ (normalize to IPlatformConnector interface)
     ↓ (EventEmitter2 fan-out from all modules)
 modules/monitoring/ (audit logs, Telegram alerts, dashboard events, compliance reports)
     ↓
+
+    ┌─── CALIBRATION PATH (offline, read-only — Epic 10.9)
+    │
+    │    External Data Sources
+    │    ├── Kalshi API (/candlesticks, /historical/trades)
+    │    ├── Polymarket API (/prices-history, Goldsky subgraph)
+    │    ├── PMXT Archive (hourly L2 Parquet snapshots)
+    │    ├── OddsPipe (matched pairs + OHLCV)
+    │    └── Predexon (cross-platform matching validation)
+    │    ↓
+    │    modules/backtesting/
+    │    ├── HistoricalDataService (ingest, normalize, persist to PostgreSQL)
+    │    ├── MatchValidationService (cross-ref our matches vs OddsPipe/Predexon)
+    │    ├── BacktestEngine (parameterized replay: detection + cost model + exits)
+    │    └── CalibrationReportService (metrics, CIs, sensitivity, walk-forward OOS)
+    │    ↓
+    │    persistence/ (BacktestRun records, historical data tables)
+    │    ↓
+    │    dashboard/ (Backtest page: configure, trigger, review results + sensitivity charts)
 dashboard/ (REST API + WebSocket gateway → React SPA)
     ↓
 persistence/ (PostgreSQL via Prisma — positions, audit trail, knowledge base, snapshots)

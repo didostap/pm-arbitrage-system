@@ -3447,6 +3447,172 @@ So that message delivery and failure resilience are independently testable.
 **And** the circuit breaker is independently testable
 **And** all existing tests pass with zero behavioral changes
 
+## Epic 10.9: Backtesting & System Calibration (Phase 1)
+
+Ingest historical prediction market data from multiple sources (platform APIs, PMXT Archive, OddsPipe, Predexon), replay detection and cost models against historical price/depth data, and produce parameter calibration reports with recommended values, confidence intervals, and sensitivity analysis. Dashboard page for running backtests and reviewing results.
+
+**Prerequisite:** Epic 10.8 (God Object Decomposition) complete — clean module boundaries required for backtesting to consume detection/cost calculation logic without pulling in God Objects.
+
+**Data Source Strategy:**
+- **Cross-platform matched pairs:** OddsPipe (primary, free tier) + Predexon (active cross-reference, $49/mo)
+- **Historical prices:** Kalshi `/candlesticks` (OHLCV, 1-min) + Polymarket `/prices-history` (1-min)
+- **Historical orderbook depth:** PMXT Archive (hourly Polymarket L2 snapshots, Parquet) + own OrderBookSnapshot collection (30s, going forward)
+- **Historical trades:** Polymarket Goldsky subgraph + Kalshi `/historical/trades`
+- **Bootstrap dataset:** poly_data pre-built snapshot for Polymarket trade data
+
+**Data Quality Risks (must be addressed in stories):**
+- Survivorship bias in historical data (delisted/resolved contracts)
+- Timezone misalignment between platforms
+- Gaps in PMXT Archive coverage
+- OddsPipe/Predexon matching errors polluting cross-platform pair data
+- Kalshi live/historical API partition (cutoff ~3 months rolling)
+
+**Scope boundary:** Calibration-focused analysis module. NOT a full replay engine through the live pipeline (ReplayConnector — deferred to Phase 2).
+
+**Capacity Budget (Agreement #22):** 7 base stories, expect 9-10 total with 30-40% correction buffer.
+
+### Story 10-9-1a: Platform API Price & Trade Ingestion (P0)
+
+As an operator,
+I want the system to ingest historical price and trade data from Polymarket and Kalshi,
+So that backtesting has a local dataset of cross-platform pricing to analyze.
+
+**Acceptance Criteria:**
+
+**Given** the system has API access to Polymarket and Kalshi
+**When** a data ingestion job is triggered (CLI command or dashboard action)
+**Then** historical price data is fetched from Kalshi `/candlesticks` (1-min OHLCV) and Polymarket `/prices-history` (1-min)
+**And** historical trades are fetched from Kalshi `/historical/trades` (cursor-paginated) and Polymarket Goldsky subgraph (GraphQL)
+**And** poly_data pre-built snapshot is supported as a bootstrap import for Polymarket trade data (saves days of initial subgraph collection)
+**And** all data is normalized to a common schema and persisted in PostgreSQL
+**And** ingestion handles Kalshi's live/historical API partition (cutoff detection via `GET /historical/cutoff`)
+**And** ingestion is idempotent (re-running does not create duplicates)
+**And** data quality checks flag: timezone misalignment, coverage gaps, suspicious price jumps, survivorship bias indicators (resolved/delisted contracts)
+**And** progress is observable via structured logs and dashboard status indicator
+**And** rate limits are respected (Polymarket 1,000 req/10s for price history, Kalshi 20 req/s basic tier)
+
+### Story 10-9-1b: Depth Data & Third-Party Ingestion (P0)
+
+As an operator,
+I want the system to ingest historical orderbook depth from PMXT Archive and supplementary OHLCV from OddsPipe,
+So that backtesting can model VWAP-based fill pricing and slippage.
+
+**Acceptance Criteria:**
+
+**Given** PMXT Archive provides hourly Polymarket L2 orderbook snapshots in Parquet format
+**And** OddsPipe provides OHLCV candlesticks at 1m/5m/1h/1d intervals
+**When** a depth data ingestion job is triggered
+**Then** PMXT Archive Parquet files are downloaded and parsed into the common schema (bids/asks arrays matching `OrderBookSnapshot` format)
+**And** OddsPipe OHLCV data is fetched for matched pairs as supplementary price data
+**And** coverage gap detection identifies time ranges with missing depth data (gaps between hourly PMXT snapshots)
+**And** freshness tracking records last available snapshot timestamp per contract per source
+**And** ingestion is idempotent
+**And** data quality checks flag: PMXT coverage gaps >2 hours, OddsPipe matching discrepancies vs our own matches
+**And** progress is observable via structured logs and dashboard status indicator
+
+### Story 10-9-2: Cross-Platform Pair Matching Validation (P0)
+
+As an operator,
+I want to cross-reference our contract matching against OddsPipe and Predexon matched pairs,
+So that I can validate matching accuracy and identify pairs we may have missed.
+
+**Acceptance Criteria:**
+
+**Given** OddsPipe provides 2,500+ auto-matched Polymarket↔Kalshi pairs
+**And** Predexon provides cross-platform matching with 99%+ claimed accuracy
+**When** a matching validation job runs
+**Then** our `ContractMatch` records are compared against OddsPipe matched pairs
+**And** our `ContractMatch` records are compared against Predexon matched pairs
+**And** a validation report shows: confirmed matches (all 3 agree), our-only matches (we matched, they didn't), external-only matches (they matched, we didn't), conflicts (disagreements between sources)
+**And** external-only matches are flagged as candidates for our knowledge base
+**And** conflicts are flagged with match details for operator review
+**And** the report is persisted and viewable on the dashboard
+
+### Story 10-9-3: Backtest Simulation Engine — Core (P0)
+
+As an operator,
+I want to run a backtest that replays historical data through parameterized detection and cost models,
+So that I can evaluate whether a given parameter set would have been profitable.
+
+**Acceptance Criteria:**
+
+**Given** historical data has been ingested (Stories 10-9-1a, 10-9-1b)
+**And** cross-platform pairs are identified (own matches + validated external matches)
+**When** a backtest is configured with: date range, parameter set (minimum edge threshold, position sizing %, max concurrent pairs, trading window hours), and fee model
+**Then** the engine iterates through historical data chronologically
+**And** at each timestamp, the detection model identifies opportunities using the parameterized edge threshold
+**And** position sizing is computed using VWAP from available depth data (PMXT Archive hourly L2 or interpolated)
+**And** execution costs are modeled using historical fee schedules (Kalshi dynamic fees, Polymarket fixed fees + gas estimates)
+**And** exit logic applies the parameterized exit criteria against subsequent price data
+**And** the engine tracks simulated portfolio state: open positions, P&L per position, aggregate P&L, drawdown, capital utilization
+**And** fill modeling uses conservative assumptions: taker fills at ask/bid (no queue position), partial fills proportional to available depth, no market impact modeling
+**And** single-leg scenarios are not simulated (assume both legs fill — documented as known limitation in calibration report, Story 10-9-4)
+
+### Story 10-9-4: Calibration Report Generation with Sensitivity Analysis (P0)
+
+As an operator,
+I want backtest results presented as a calibration report with recommended parameter values, confidence intervals, sensitivity analysis, and out-of-sample validation,
+So that I can make informed parameter decisions with clear risk boundaries and confidence against overfitting.
+
+**Acceptance Criteria:**
+
+**Given** a completed backtest run (Story 10-9-3)
+**When** the calibration report is generated
+**Then** the report includes:
+- **Summary metrics:** Total trades, profit factor, net P&L, max drawdown, Sharpe ratio, win rate, average edge captured vs expected
+- **Recommended parameter values:** The parameter set that maximizes profit factor (primary) or Sharpe (secondary)
+- **Confidence intervals:** Bootstrap resampling (1000+ iterations) producing 95% CI for profit factor and Sharpe
+- **Sensitivity analysis:** Parameter sweep across defined ranges with profit factor, max drawdown, and Sharpe ratio computed at each point:
+  - Minimum edge threshold: sweep 0.5% to 5.0% in 0.1% steps
+  - Position sizing: sweep 1% to 5% of bankroll in 0.5% steps
+  - Max concurrent pairs: sweep 5 to 30 in steps of 5
+  - Trading window: compare full-day vs top-performing UTC hour ranges
+- **Degradation boundaries:** Identify parameter values where profit factor drops below 1.0 (breakeven) — "below 2.8% minimum edge, the system is unprofitable"
+- **Out-of-sample validation:** Walk-forward analysis — train on the first N% of the date range, test on the remaining (100-N)%, with configurable split ratio (default 70/30). Report separates in-sample vs out-of-sample metrics. Parameters showing >30% degradation between in-sample and out-of-sample are flagged as potential overfits.
+- **Known limitations:** Single-leg risk not modeled (both legs assumed to fill), market impact not modeled, queue position not modeled (taker-only fills), depth interpolation between hourly PMXT snapshots
+- **Data quality summary:** Coverage gaps, excluded periods, pair count, total data points analyzed
+**And** the report is persisted as a `BacktestRun` record (analogous to `CalibrationRun` / `StressTestRun`)
+**And** sensitivity charts are renderable by the dashboard
+
+### Story 10-9-5: Backtest Dashboard Page (P1)
+
+As an operator,
+I want a dashboard page to configure, trigger, and review backtests,
+So that I can run calibration analysis without CLI access.
+
+**Acceptance Criteria:**
+
+**Given** the backtesting module is operational
+**When** I navigate to the Backtest page
+**Then** I can configure a backtest: select date range, adjust parameter values, choose fee model, select validation mode (full-range or walk-forward with configurable split)
+**And** I can trigger a backtest run and see progress indication
+**And** I can view completed backtest results with summary metrics
+**And** sensitivity analysis is displayed as interactive charts (parameter on x-axis, metric on y-axis, with degradation boundary highlighted)
+**And** out-of-sample vs in-sample metrics are visually distinguished (separate panels or overlaid with clear labeling)
+**And** overfitting warnings are prominently displayed when >30% in-sample/out-of-sample degradation detected
+**And** known limitations are visible in a collapsible section on every report view
+**And** I can compare two backtest runs side-by-side (before/after parameter change)
+**And** the page follows existing dashboard patterns (DataTable, URL state, sidebar navigation)
+**And** backtest history is listed with status, date range, key metrics
+
+### Story 10-9-6: Historical Data Freshness & Incremental Updates (P1)
+
+As an operator,
+I want the historical data to stay current with incremental updates,
+So that backtests always reflect the latest available market data.
+
+**Acceptance Criteria:**
+
+**Given** an initial data ingestion has been completed
+**When** a refresh job runs (configurable cron schedule, default daily)
+**Then** only new data since last ingestion is fetched (incremental, not full re-download)
+**And** PMXT Archive is checked for new hourly snapshots
+**And** OddsPipe/Predexon are checked for new matched pairs
+**And** Kalshi historical cutoff advancement is handled (data migrating from live to historical tier)
+**And** data quality checks re-run on new data
+**And** stale data warnings are emitted if any source hasn't updated within expected window
+**And** dashboard shows data freshness indicators (last update timestamp per source)
+
 ## Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
