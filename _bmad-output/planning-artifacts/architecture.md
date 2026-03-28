@@ -73,7 +73,7 @@ API backend (fintech/trading) — real-time event-driven system with lightweight
 | Runtime | Node.js | LTS | Single-threaded event loop aligns with sequential execution locking design |
 | Framework | NestJS + Fastify | 11.x / 11.1.x | Module system maps 1:1 to PRD's 5-module architecture; DI enables testability; Fastify 2-3x faster than Express |
 | ORM | Prisma | 6.x | Type-safe queries, migration tooling, PostgreSQL support for 7-year audit trail and correlation analytics |
-| Database | PostgreSQL | 16+ | Query power for Phase 1 knowledge base, correlation analytics, 7-year retention; replaces PRD's SQLite suggestion |
+| Database | PostgreSQL + TimescaleDB | 16+ / 2.x | Query power for Phase 1 knowledge base, correlation analytics, 7-year retention; replaces PRD's SQLite suggestion. TimescaleDB extension for time-series hypertable partitioning, native compression (90%+), continuous aggregates, and chunk-based retention on historical data tables |
 | Blockchain | viem | Latest stable | TypeScript-native Polygon/Polymarket on-chain transactions; tree-shakable; modern alternative to ethers.js |
 | Testing | Vitest | 4.x | Native TypeScript, Jest-compatible API, faster execution; SWC transform via unplugin-swc for decorator metadata |
 | Dashboard | React (SPA) | 19.x | Shared TypeScript types with backend; lightweight single-user operator dashboard |
@@ -137,7 +137,7 @@ All 5 categories decided — data architecture, security, communication patterns
 
 **Audit Log Architecture:** Append-only table with SHA-256 cryptographic chaining. Each audit log entry includes hash of previous entry, creating a verifiable chain satisfying PRD's "tamper-evident logging" requirement (NFR-S3). No trigger-based capture — the system is the sole writer to trading tables, so all state changes are already logged explicitly through the Monitoring module. Hash chain provides cryptographic proof of ordering and completeness for legal review.
 
-**Time-Series Data:** Plain PostgreSQL with monthly table partitioning for order book snapshots. No TimescaleDB extension dependency. At system scale (~2.5M rows/day for 20-30 contract pairs at 30-second snapshots), native PostgreSQL partitioning handles the volume. Retention policies via partition drops (older than 7 years). TimescaleDB justified only if data volumes increase significantly (Phase 2+ multi-platform).
+**Time-Series Data:** PostgreSQL with TimescaleDB extension. Historical data tables (`historical_prices`, `historical_depths`, `historical_trades`) are converted to hypertables with automatic time-based chunk partitioning (1-day interval). Compression enabled on chunks older than 7 days (`segmentby = platform, contract_id, source`, `orderby = timestamp DESC`) achieving 90%+ storage reduction. Retention policies via chunk drops (configurable, default 6 months for raw data). Docker image: `timescale/timescaledb-ha:pg16` (drop-in replacement for `postgres:16`). Prisma compatibility: standard CRUD unchanged; hypertable creation via manual migration SQL; `time_bucket()` and compression stats via `$queryRaw`. All unique constraints and primary keys on hypertables include the `timestamp` partitioning column (TimescaleDB requirement).
 
 **Caching Strategy:** In-memory only. Current order book state, risk budgets, platform health status, and detection cycle data live in Node.js process memory. Ephemeral data rebuilt from platform APIs on restart. 30-second polling cycle means stale cache is at most 30 seconds old. Redis adds operational dependency and network hop conflicting with sub-second latency requirements (NFR-P1, NFR-P2). No cross-process cache sharing needed in single-process design.
 
@@ -209,7 +209,7 @@ interface IPlatformConnector {
 
 ### Infrastructure & Deployment
 
-**Docker Compose:** Three-service architecture — `postgres`, `engine`, `dashboard`. Dashboard container is nginx serving Vite static build. Independent rebuild/restart — dashboard redeploys don't touch the trading engine (critical when open positions exist). Docker Compose file lives in engine repo as deployment configuration.
+**Docker Compose:** Three-service architecture — `postgres` (using `timescale/timescaledb-ha:pg16` image), `engine`, `dashboard`. Dashboard container is nginx serving Vite static build. Independent rebuild/restart — dashboard redeploys don't touch the trading engine (critical when open positions exist). Docker Compose file lives in engine repo as deployment configuration.
 
 **Blue/Green Deployment (MVP):** Manual bash script — pull new engine image → start green container on alternate port → health check `/api/health` → verify startup reconciliation completes → swap port binding in compose → 5-minute observation window with auto-rollback on health degradation. Phase 1 adds Caddy-based upstream swap when HTTPS is introduced.
 

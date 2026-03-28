@@ -3313,6 +3313,142 @@ Decompose all identified God Objects into focused, single-responsibility service
 
 **Prerequisites:** Epic 10.7 must be complete before refactoring begins (don't interrupt active feature work).
 
+### Epic 10.95: TimescaleDB Migration & Time-Series Storage Optimization
+Migrate time-series tables to TimescaleDB hypertables with compression, reducing storage by ~90% (337 GB → <50 GB) and improving time-range query performance 10-50x, while maintaining full Prisma compatibility.
+**FRs covered:** None (infrastructure optimization)
+**Course correction:** 2026-04-03 — database grew to 337 GB in ~3 months from 3 time-series tables (historical_prices 180 GB, historical_depths 151 GB, historical_trades 5.9 GB). 76 GB index bloat, cache hit rates below threshold. Projected 1.3 TB/year without intervention.
+
+**Prerequisites:** Epic 10.9 complete. Full pg_dump backup before migration.
+
+## Epic 10.95: TimescaleDB Migration & Time-Series Storage Optimization
+
+Migrate time-series tables to TimescaleDB hypertables with compression, reducing storage by ~90% and improving query performance 10-50x, while maintaining full Prisma and SQL compatibility. TimescaleDB is a PostgreSQL extension — not a database replacement.
+
+### Story 10-95-1: TimescaleDB Extension Installation & Proof of Concept
+
+As an operator,
+I want TimescaleDB installed and verified on the smallest time-series table,
+So that I can validate the migration approach before converting larger tables.
+
+**Acceptance Criteria:**
+
+**Given** Docker Compose files use `postgres:16` image
+**When** the migration is applied
+**Then** both `docker-compose.yml` and `docker-compose.dev.yml` use `timescale/timescaledb-ha:pg16`
+**And** existing data volumes are compatible (drop-in replacement)
+
+**Given** TimescaleDB is not installed
+**When** the Prisma migration runs
+**Then** `CREATE EXTENSION IF NOT EXISTS timescaledb` succeeds
+**And** the Prisma schema declares `extensions = [timescaledb]` in the datasource block
+
+**Given** `historical_trades` (5.9 GB, smallest table) exists as a regular table
+**When** the hypertable conversion runs
+**Then** `SELECT create_hypertable('historical_trades', 'timestamp', migrate_data => true, chunk_time_interval => INTERVAL '1 day')` succeeds
+**And** the Prisma schema uses `@@id([id, timestamp])` composite PK
+**And** the unique constraint includes `timestamp`: `@@unique([platform, contractId, source, externalTradeId, timestamp])`
+
+**Given** `historical_trades` is now a hypertable
+**When** existing Prisma queries execute (findMany, create, createMany)
+**Then** all operations succeed identically to before conversion
+
+**Given** unused indexes exist on `historical_trades`
+**When** the migration runs
+**Then** `historical_trades_platform_contract_id_timestamp_idx` (0 scans, 676 MB) is dropped
+**And** `historical_trades_timestamp_idx` (0 scans, 132 MB) is dropped
+
+### Story 10-95-2: Hypertable Conversion — historical_prices & historical_depths
+
+As an operator,
+I want the two largest tables converted to hypertables with optimized indexes,
+So that the database can handle long-term data growth efficiently.
+
+**Acceptance Criteria:**
+
+**Given** `historical_prices` (180 GB, 248M rows) exists as a regular table
+**When** the migration runs
+**Then** `create_hypertable('historical_prices', 'timestamp', migrate_data => true, chunk_time_interval => INTERVAL '1 day')` succeeds
+**And** Prisma schema uses `@@id([id, timestamp])` composite PK
+
+**Given** `historical_depths` (151 GB, 106M rows) exists as a regular table
+**When** the migration runs
+**Then** `create_hypertable('historical_depths', 'timestamp', migrate_data => true, chunk_time_interval => INTERVAL '1 day')` succeeds
+**And** Prisma schema uses `@@id([id, timestamp])` composite PK
+
+**Given** bloated/rarely-used indexes exist (76 GB total bloat)
+**When** hypertable conversion completes
+**Then** the following indexes are dropped:
+- `historical_prices_contract_id_source_timestamp_idx` (27 GB, 23 scans)
+- `historical_prices_timestamp_idx` (2.1 GB, 32 scans)
+- `historical_depths_timestamp_idx` (2.9 GB, 28 scans)
+
+**Given** both tables are converted to hypertables
+**When** backtesting queries run (price lookups, depth snapshots, OHLCV aggregation)
+**Then** all results match pre-migration output
+
+**Given** the migration involves large data movement (~330 GB)
+**When** the migration is planned
+**Then** a full `pg_dump` backup is taken before execution
+**And** a maintenance window is scheduled (estimated: 2-4 hours)
+
+### Story 10-95-3: Compression Policies, Retention & Observability
+
+As an operator,
+I want old data automatically compressed and retention policies enforced,
+So that storage stays bounded and I can monitor compression effectiveness.
+
+**Acceptance Criteria:**
+
+**Given** all three hypertables exist
+**When** compression is enabled
+**Then** each table has compression configured with `segmentby = 'platform, contract_id, source'` and `orderby = 'timestamp DESC'`
+
+**Given** compression policies are set (7-day interval)
+**When** chunks older than 7 days exist
+**Then** they are automatically compressed
+**And** compressed chunks remain fully queryable via Prisma
+
+**Given** existing data spans ~3 months
+**When** manual compression of old chunks is triggered
+**Then** all chunks older than 7 days are compressed
+**And** total database size drops from ~337 GB to target <50 GB
+
+**Given** retention policies are configured via EngineConfig with differentiated defaults
+**When** the retention interval elapses
+**Then** raw data older than the configured period is automatically dropped (chunk-level DROP, no vacuum overhead):
+- `historical_prices`: 2 years (walk-forward validation across multiple market regimes)
+- `historical_trades`: 1 year (seasonal pattern coverage)
+- `historical_depths`: 6 months (heaviest table — compression target)
+**And** operator is notified via Telegram when retention runs
+**And** retention periods are configurable but defaults are non-negotiable (per Epic 10.9 retro)
+
+**Given** compressed data exists
+**When** the operator views the dashboard System Health page
+**Then** a new "Storage" section shows total database size, per-table compressed vs uncompressed size, compression ratio, and chunk count
+
+### Story 10-95-4: BacktestEngineService Decomposition (Added by Epic 10.9 Retro)
+
+As a developer,
+I want BacktestEngineService decomposed into focused sub-services,
+So that the codebase doesn't carry a 917-line God Object with 9 constructor dependencies into Epic 11.
+
+**Context:** Added during Epic 10.9 retrospective. BacktestEngineService grew from ~380 lines (10-9-3) to 917 lines (10-9-3a) with 9 constructor dependencies (exceeding facade ≤8 threshold). Decomposition seams are already visible. Uses the facade decomposition playbook proven in Epic 10.8. Slotted as final 10.95 story — can slip to Epic 11 if correction buffer consumed, but default plan is completion before Epic 11.
+
+**Acceptance Criteria:**
+
+**Given** BacktestEngineService is 917 formatted lines with 9 constructor dependencies
+**When** decomposition is complete
+**Then** `WalkForwardRoutingService` is extracted (walk-forward train/test splitting, headless run management, out-of-sample validation orchestration)
+**And** `ChunkedDataLoadingService` is extracted (chunked time-window processing, cursor-based pagination, batch depth pre-loading, chunk progress events)
+**And** BacktestEngineService remains as a facade delegating to the new services
+**And** BacktestEngineService constructor has ≤8 dependencies
+**And** BacktestEngineService is under 600 formatted lines
+**And** all existing tests pass with zero behavioral changes
+**And** extracted services have co-located spec files with tests migrated from the original
+
+**Dependencies:** Stories 10-95-1 through 10-95-3 complete (migration stable)
+**Blocks:** Clean entry into Epic 11
+
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07
@@ -3586,6 +3722,107 @@ So that I can evaluate whether a given parameter set would have been profitable.
 **And** the engine tracks simulated portfolio state: open positions, P&L per position, aggregate P&L, drawdown, capital utilization
 **And** fill modeling uses conservative assumptions: taker fills at ask/bid (no queue position), partial fills proportional to available depth, no market impact modeling
 **And** single-leg scenarios are not simulated (assume both legs fill — documented as known limitation in calibration report, Story 10-9-4)
+
+**Scope Boundary — Data Loading:**
+This story implements the simulation engine with direct data loading (single-query `loadPrices`/`loadPairs`). This is sufficient for development and small-to-medium test datasets (<10K price records). Production-scale data loading (200GB+) is handled by Story 10-9-3a (Backtest Pipeline Scalable Data Loading), which refactors the data retrieval layer while preserving all simulation logic from this story.
+
+**Note:** Story 10-9-3a depends on this story being complete first. Do not attempt production-scale backtests until 10-9-3a and 10-9-3b are merged.
+
+### Story 10-9-3a: Backtest Pipeline Scalable Data Loading (P0)
+
+As an operator,
+I want the backtest engine to process large historical datasets (200GB+) without memory exhaustion or excessive query load,
+So that I can run calibration backtests over the full available date range (months to years of data) reliably.
+
+**Problem Context:**
+The current `executePipeline` method loads ALL prices and pairs for the selected date range in a single Prisma query, materializing everything in Node.js memory. This is unsustainable at production scale (~200GB of historical price/depth data). Additionally, depth lookups use an N+1 query pattern (~10K individual queries per simulation run).
+
+**Acceptance Criteria:**
+
+**Given** a backtest configuration with a date range spanning months or years of historical data
+**When** the pipeline executes
+**Then:**
+1. `loadPrices()` is replaced with chunked loading — data processed in configurable time-windows (default: 1 day) using cursor-based Prisma pagination
+2. `alignPrices()` operates per-chunk rather than on the full dataset — only the current chunk's time steps are held in memory at any time
+3. Depth data for each chunk is pre-loaded in a single batched query before the simulation loop processes that chunk (eliminates N+1 pattern)
+4. Walk-forward analysis shares pre-loaded chunk data with headless sub-simulations — no redundant re-loading
+5. Chunk-level progress events emitted via EventEmitter2 (e.g., `backtest.pipeline.chunk.completed`) for dashboard progress tracking
+6. Memory usage stays bounded — peak RSS does not exceed 512MB for a 90-day backtest with 500+ pairs at 5-minute resolution
+7. All existing backtest simulation tests continue to pass without modification (simulation logic unchanged)
+8. Pipeline timeout (`timeoutSeconds`) still enforced correctly across chunks
+9. Dashboard displays chunk-level progress (e.g., "Processing day 15 of 90") via WebSocket gateway, with graceful fallback to state machine status for pre-deployment runs
+
+**Technical Notes:**
+- Follow patterns proven in data-ingestion module: 7-day chunked windows, p-limit concurrency, batch operations
+- Chunk size should be configurable via `IBacktestConfig` (new field: `chunkWindowDays`, default 1)
+- Pre-load depths: single `findMany` with `IN` clause on contract IDs + timestamp range per chunk, keyed into a `Map` for O(1) lookup during simulation
+- Portfolio state (openPositions, closedPositions, equity curve) persists across chunks — only price data is discarded
+- **Follow-up candidate:** Chunk-level resume on failure (persist last successful chunk index to `BacktestRun`, allow restart from checkpoint). Defer unless chunk failures observed during integration testing.
+- **Known limitation:** Depth data density was underestimated at design time. Per-chunk depth loading for all 5,640 contract IDs produces ~573K records (~5.7 GB of `Decimal` objects), exceeding V8 heap limits. Fix: Story 10-9-3b (contract filtering, native numbers, bounded cache, re-enable timeouts).
+
+**Dependencies:** Story 10-9-3 (simulation engine must exist first)
+**Blocked by:** None beyond 10-9-3
+**Blocks:** Production-scale calibration runs (10-9-4 at scale), dashboard progress indicator. **Note:** 10-9-3b required before production-scale runs are viable.
+
+**Tasks:**
+1. Add `chunkWindowDays` field to `IBacktestConfig` interface with default value
+2. Implement `loadPricesChunked()` generator/iterator yielding day-sized price batches via cursor pagination
+3. Implement `preloadDepthsForChunk()` — batch depth query for all active contract IDs within chunk timestamp range
+4. Refactor `executePipeline()` to iterate over chunks: load → align → simulate → discard per window
+5. Ensure portfolio state carries across chunk boundaries (open positions survive chunk transitions)
+6. Add chunk progress event emission + dashboard WebSocket consumption + fallback for pre-deployment runs
+7. Refactor walk-forward to split by chunks rather than re-loading entire dataset 3x
+8. Add integration test: 90-day simulated backtest with chunked loading (mock Prisma, verify bounded memory)
+9. Add unit test: chunk boundary — position opened in chunk N is correctly evaluated for exit in chunk N+1
+10. Add unit test: depth pre-loading returns correct nearest depth within chunk window
+
+### Story 10-9-3b: Backtest Depth Loading Memory Fix (P0 HOTFIX)
+
+As an operator,
+I want the backtest engine depth loading to operate within bounded memory,
+So that production-scale backtests complete without V8 heap exhaustion.
+
+**Problem Context:**
+Story 10-9-3a introduced chunked pipeline loading but `preloadDepthsForChunk` still loads ALL depth snapshots for ALL 5,640 contract IDs per 1-day chunk (~573K records → ~37.8M `Decimal` objects → ~5.7 GB). Additionally, timeout checks were commented out during development and never re-enabled, removing the circuit breaker for runaway memory consumption.
+
+**Acceptance Criteria:**
+
+**Given** a backtest configuration with a date range spanning days to months of historical data
+**When** the pipeline executes
+**Then:**
+1. Depth data is loaded only for contracts that have aligned price data in the current chunk (not all approved pairs)
+2. Depth cache memory is bounded — peak depth cache size does not exceed configurable limit (default: 100K records per chunk)
+3. If a chunk's depth data exceeds the bound, depths are loaded lazily per-contract via LRU cache (bounded size, e.g., 500 entries) instead of eager full pre-load
+4. Depth level parsing uses native `number` for price/size instead of `decimal.js` `Decimal` (depth levels are used for VWAP fill estimation, not financial settlement)
+5. Timeout checks are re-enabled at chunk boundaries and within the simulation loop
+6. `closedPositions` array is bounded — positions are flushed to a chunked buffer or aggregate metrics accumulated to prevent unbounded growth
+7. `capitalSnapshots` are downsampled to fixed intervals (e.g., 1 per hour) rather than 1 per open/close event
+8. All existing backtest simulation tests continue to pass
+9. A 7-day backtest with 2,933 approved pairs at 1-day chunk size completes without OOM (peak RSS < 1 GB)
+
+**Technical Notes:**
+- **Contract filtering (AC#1):** After `loadAlignedPricesForChunk`, extract distinct `kalshiContractId` and `polymarketContractId` from `chunkTimeSteps`. Pass only those IDs to `preloadDepthsForChunk`. Expected reduction: 5,640 → <500 per chunk.
+- **Bounded depth cache (AC#2-3):** Add `maxDepthRecordsPerChunk` constant. If query count exceeds threshold, fall back to lazy per-contract loading with LRU cache.
+- **Native numbers for depth (AC#4):** Replace `Decimal` in `NormalizedHistoricalDepth.bids[].price`/`.size` and `.asks[].price`/`.size` with `number`. Update `parseJsonDepthLevels`, `adaptDepthToOrderBook`, `findNearestDepthFromCache`. Memory reduction: ~60% per depth record (~120 bytes/Decimal → 8 bytes/number).
+- **Re-enable timeouts (AC#5):** Uncomment 3 timeout blocks in `backtest-engine.service.ts`. Use `timeoutSeconds` from config.
+- **closedPositions bounding (AC#6):** Accumulate aggregate metrics in-memory. Write individual positions to DB in batches at chunk boundaries. `persistResults` reads from DB.
+- **capitalSnapshots downsampling (AC#7):** Fixed-interval sample (1 per hour) instead of every open/close event.
+
+**Dependencies:** Story 10-9-3a (already done)
+**Blocked by:** None
+**Blocks:** Production-scale calibration runs, Epic 10.9 closure
+
+**Tasks:**
+1. Filter `contractIds` in `executePipeline` to only contracts present in `chunkTimeSteps` after loading aligned prices
+2. Add depth record count check and implement fallback lazy loading with LRU cache in `BacktestDataLoaderService`
+3. Convert `NormalizedHistoricalDepth` bid/ask levels from `Decimal` to native `number`; update `parseJsonDepthLevels`, `adaptDepthToOrderBook`, `findNearestDepthFromCache`
+4. Uncomment and verify all 3 timeout check blocks in `backtest-engine.service.ts`
+5. Bound `closedPositions` — flush to DB at chunk boundaries or switch to streaming aggregate metrics
+6. Downsample `capitalSnapshots` to fixed intervals
+7. Unit test: contract filtering reduces depth loading to chunk-active contracts only
+8. Unit test: depth cache fallback to lazy LRU when record count exceeds threshold
+9. Integration test: 7-day backtest with full pair set completes within memory bounds (peak RSS < 1 GB)
+10. Unit test: timeout correctly halts pipeline when exceeded
 
 ### Story 10-9-4: Calibration Report Generation with Sensitivity Analysis (P0)
 
