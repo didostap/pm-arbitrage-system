@@ -1,0 +1,188 @@
+{
+  "scanner": "enhancement-opportunities",
+  "status": "warning",
+  "findings": [
+    {
+      "severity": "critical",
+      "category": "assumption",
+      "location": { "file": "steps-c/step-02-api-verification.md", "section": "Test Each Endpoint" },
+      "issue": "API testing uses unauthenticated curl. The project uses Bearer token auth (guards in common/guards/). All protected endpoints will return 401 and be recorded as failures, producing a misleading report.",
+      "fix": "Add auth token resolution to preflight (step-01): read from .env.development or prompt user. Inject '-H \"Authorization: Bearer {token}\"' into all curl commands in step-02. Document that unauthenticated endpoints are tested without headers."
+    },
+    {
+      "severity": "critical",
+      "category": "assumption",
+      "location": { "file": "workflow.yaml", "section": "variables" },
+      "issue": "The workflow hardcodes app_url as 'http://localhost:3000' but the dashboard SPA runs separately on a different port (pm-arbitrage-dashboard/ is a sibling repo). Step-03 UI verification navigates to app_url which would reach the NestJS backend, not the React SPA dashboard. The UI step would test wrong content or fail.",
+      "fix": "Add a 'dashboard_url' variable (e.g., 'http://localhost:5173' for Vite dev) to workflow.yaml. Use dashboard_url in step-03 for Playwright navigation and app_url/api_url exclusively for API calls in step-02. Update preflight health checks to verify both services."
+    },
+    {
+      "severity": "high",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "Verify Page Content" },
+      "issue": "No handling for authentication-gated UI. If the dashboard requires login (the engine uses Bearer token guards), Playwright will land on a login screen or blank page. The workflow has no login flow, no cookie/token injection, and no detection of redirect-to-login behavior.",
+      "fix": "Add a 'ui_auth' section to preflight: detect if app_url redirects (browser_network_requests after navigate, check for 401 or redirect URL). If auth is required, add an optional login step using browser_fill_form with credentials from config. Document a 'skip_auth: true' escape hatch for apps without UI auth."
+    },
+    {
+      "severity": "high",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "MANDATORY SEQUENCE" },
+      "issue": "WebSocket/real-time data is not tested. The project has a WebSocket gateway (dashboard/ module) that pushes live trading data. The workflow has no mechanism to verify WS connections are established, that real-time updates arrive, or that the UI reflects live state changes. A story that implements WS push could pass all static checks and still be broken.",
+      "fix": "Add a 'Step 3b: Real-time Verification' sub-section in step-03 (or a new step). Use browser_evaluate to check WebSocket readyState: 'window.wsConnection?.readyState'. Use browser_wait_for to wait for a DOM change after a known event. Add a check in browser_network_requests or browser_console_messages for WS upgrade headers/messages."
+    },
+    {
+      "severity": "high",
+      "category": "missing-capability",
+      "location": { "file": "steps-c/step-02-api-verification.md", "section": "MANDATORY SEQUENCE" },
+      "issue": "No authentication header testing. The workflow never tests that endpoints correctly reject requests without a valid token (security boundary). An endpoint that accidentally skips auth would pass all current checks.",
+      "fix": "Add an 'Auth Boundary Test' as a mandatory step in step-02: for each protected endpoint, send a request without Authorization header and verify 401 is returned. Also test with an invalid token (e.g., 'Bearer invalid') and expect 401 or 403. Record results as a separate security evidence item."
+    },
+    {
+      "severity": "high",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-01-preflight.md", "section": "Verify Application Is Running" },
+      "issue": "Health check only verifies HTTP 200 but not application readiness. NestJS can return 200 on /health before all modules are initialized (e.g., before DB connection pool is ready, before WebSocket gateway is live). A partially-initialized app would pass preflight but fail subsequent stages with confusing errors.",
+      "fix": "Extend the health check to parse the response body and verify key readiness fields (e.g., 'db: ok', 'wsGateway: ok'). If the health endpoint returns a structured health object, verify constituent service statuses. Add a short retry loop (3 attempts, 2s apart) to handle slow startup."
+    },
+    {
+      "severity": "high",
+      "category": "experience-gap",
+      "location": { "file": "steps-c/step-01b-resume.md", "section": "Route to Next Step" },
+      "issue": "Resume routing uses lastStep name matching but the step names in the lookup table ('preflight', 'api-verification') must exactly match what was written to stepsCompleted in each step file. A single naming inconsistency (e.g., 'api-verification' vs 'apiVerification') will cause resume to silently repeat a completed step or skip to the wrong one. There is no validation of this match.",
+      "fix": "Define step name constants as a single enum or list in workflow.yaml and reference them in both the step frontmatter and the resume routing table. Add a resume validation check: if lastStep value is not in the known step sequence, warn the user and offer to restart from a manually selected step."
+    },
+    {
+      "severity": "high",
+      "category": "missing-capability",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "MANDATORY SEQUENCE" },
+      "issue": "No responsive/viewport testing. The dashboard is a React SPA. Operators may use it on different screen sizes. There is no check for layout breakage at narrow viewports (e.g., mobile or small laptop). Data tables in particular are prone to overflow or column hiding.",
+      "fix": "Add an optional 'Viewport Test' sub-section: use browser_resize to set viewport to 1280x800 (default), then 1024x768 (small laptop), capture screenshots at each. Look for horizontal scrollbars or clipped content in browser_snapshot (overflow indicators). Mark as WARN rather than FAIL for minor layout issues."
+    },
+    {
+      "severity": "medium",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-02-api-verification.md", "section": "Test Each Endpoint" },
+      "issue": "curl commands use -s (silent) which hides connection errors. If the request times out or the connection is reset, curl exits with a non-zero code but the bash substitution silently returns empty output. The workflow has no timeout flag and no curl error code check, so a hung endpoint appears as a blank response rather than a clearly labelled FAIL.",
+      "fix": "Add '--max-time 10 --connect-timeout 5' to all curl commands. Capture both the HTTP code and the exit code: 'HTTP_CODE=$(curl ...) ; CURL_EXIT=$?'. If CURL_EXIT != 0, record as FAIL: 'Connection failed (exit code {CURL_EXIT})' rather than trying to parse empty output."
+    },
+    {
+      "severity": "medium",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-04-data-verification.md", "section": "Data Integrity Spot Checks" },
+      "issue": "The orphaned orders query checks position_id NOT IN (SELECT id FROM open_positions) but if open_positions is empty (no trades have run), this returns all orders with position_id set — which is correct behavior in a fresh environment, not a bug. The workflow has no guidance on distinguishing 'expected empty state' from 'data integrity error'.",
+      "fix": "Add context-sensitive interpretation guidance: before running integrity queries, check if the system has ever run trades (count orders > 0). If no trades exist, mark integrity queries as N/A rather than PASS/FAIL. Document 'empty-state baseline' as a normal condition and note it explicitly in the report."
+    },
+    {
+      "severity": "medium",
+      "category": "experience-gap",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "Verify Page Content" },
+      "issue": "No guidance for slow-loading pages or async data. The React SPA uses TanStack Query for data fetching. After navigation, data may still be loading when browser_snapshot is taken. The agent may see 'Loading...' spinner states and incorrectly record them as errors or incorrectly assert on stale data.",
+      "fix": "Add a browser_wait_for call after each navigation: 'browser_wait_for(selector: \"[data-status=loaded]\", timeout: 10000)' or 'browser_wait_for(text_not_visible: \"Loading...\")'. Provide guidance: if loading state persists after 10s, record as WARN: 'Data fetch timeout' rather than PASS."
+    },
+    {
+      "severity": "medium",
+      "category": "experience-gap",
+      "location": { "file": "steps-c/step-05-log-inspection.md", "section": "Server Application Logs (Tier 2)" },
+      "issue": "grep pattern 'error|ERR|exception|fatal' is case-insensitive but will match false positives: 'referrer', 'ErrorBoundary', 'handleError' (function name), 'assertError' (test), 'currentError' (variable). In a NestJS app with structured JSON logs, these noise hits dilute real errors and may cause the agent to spend time investigating benign matches.",
+      "fix": "Scope the grep to JSON log severity fields: 'grep -P '\"level\":\\s*\"(error|fatal)\"' to match only genuine log entries at error/fatal level. Provide the grep command for both formatted JSON and plain text output formats. Add a note: 'if match count exceeds 20, limit to last 5 distinct correlationIds to avoid log noise overload'."
+    },
+    {
+      "severity": "medium",
+      "category": "missing-capability",
+      "location": { "file": "steps-c/step-02-api-verification.md", "section": "STEP GOAL" },
+      "issue": "No pagination or list endpoint testing. Many REST endpoints return lists (positions, orders, matches). The workflow only verifies structure but never tests pagination parameters (page, limit, offset), empty-list responses (when no data exists), or large-dataset performance. A broken pagination implementation would be invisible.",
+      "fix": "Add a 'List Endpoint Patterns' section in step-02: for endpoints returning arrays, test with explicit pagination params (?page=1&limit=10), verify 'count' field in response matches array length, and test with limit=0 or page=9999 to verify empty-page handling returns { data: [], count: 0 } rather than an error."
+    },
+    {
+      "severity": "medium",
+      "category": "assumption",
+      "location": { "file": "steps-c/step-04-data-verification.md", "section": "Verify Database Connectivity" },
+      "issue": "The workflow assumes Postgres MCP is pre-configured with the correct connection string pointing to the project database. If Postgres MCP is pointed at a different database or not configured, mcp__postgres__list_schemas() will either error or return schemas from the wrong DB. There is no connection verification or database name check.",
+      "fix": "Add a database identity check at the start of step-04: 'SELECT current_database(), current_schema()' and verify the database name matches the expected project DB (e.g., 'pm_arbitrage'). If wrong database is connected, fail the step immediately with clear instructions to reconfigure Postgres MCP rather than running queries on the wrong DB."
+    },
+    {
+      "severity": "medium",
+      "category": "assumption",
+      "location": { "file": "workflow.yaml", "section": "variables" },
+      "issue": "The stages variable ('all' | 'api' | 'ui' | 'data' | 'logs') is defined but no step file actually reads or enforces this variable. If a user sets stages: 'api,ui' to skip data and log steps, the workflow will still execute all stages because step files load unconditionally via nextStepFile chaining.",
+      "fix": "Add a 'Check Stage Gate' section at the top of each step-02 through step-05: 'If {stages} != \"all\" AND this stage name is not in {stages}, skip to next step and note in report as N/A.' Alternatively, handle stage filtering in the headless mode routing in workflow.md."
+    },
+    {
+      "severity": "medium",
+      "category": "delight",
+      "location": { "file": "templates/qa-report-template.md", "section": "Summary" },
+      "issue": "The summary table lacks timing data. Knowing how long each stage took is valuable for identifying slow steps (a 45-second API test stage suggests timeout issues). The report has a 'Duration' field for total time but no per-stage breakdown.",
+      "fix": "Add a 'Stage Timing' section to the report template: a table with columns 'Stage | Start | End | Duration'. Record start/end timestamps at the top and bottom of each step file's MANDATORY SEQUENCE. Include total wall-clock time in the Summary table."
+    },
+    {
+      "severity": "medium",
+      "category": "delight",
+      "location": { "file": "steps-c/step-06-report.md", "section": "Write Summary Section" },
+      "issue": "The report has no test coverage metric. A QA report that says '5/5 ACs PASS' without indicating how many ACs were untestable (e.g., not observable via the current tool set) overstates confidence. Stories often have ACs that cannot be verified through browser/API/DB alone (e.g., timing behavior, memory cleanup).",
+      "fix": "Add a 'BLOCKED' verdict category alongside PASS/FAIL for ACs that cannot be verified by the available tools. Update the summary table to include 'ACs Blocked: N' with a reason column. This gives honest coverage signal rather than silently omitting unverifiable ACs."
+    },
+    {
+      "severity": "low",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-05-log-inspection.md", "section": "CSV Trade Logs (Tier 1)" },
+      "issue": "Trade CSV reading uses 'date +%Y-%m-%d' which generates today's system date. If the server started at 23:55 and QA runs at 00:05 the next day, today's trade log will be empty while yesterday's log contains the relevant trades. The QA agent will report 'No trades today' incorrectly.",
+      "fix": "Also read yesterday's trade log: 'cat {trade_log_dir}/trades-$(date -d yesterday +%Y-%m-%d).csv 2>/dev/null'. Alternatively, list the three most recent log files and read the one(s) with recent modification timestamps: 'ls -t {trade_log_dir}/trades-*.csv | head -3'."
+    },
+    {
+      "severity": "low",
+      "category": "edge-case",
+      "location": { "file": "steps-c/step-01b-resume.md", "section": "Load Output Document" },
+      "issue": "Resume mode finds reports with 'ls -t {report_dir}/qa-report-*.md | head -5' but if the same story was verified multiple times, multiple reports exist. The agent presents a list but there is no guidance on how to handle a user who picks a report from a different story than what they want to resume — the reloaded context (story file path in inputs[]) may point to a different story.",
+      "fix": "After loading the report and reloading context from inputs[], display the story ID and scope from the report frontmatter and ask: 'This report is for story {story_id}. Is this the correct session to resume? [Y/N]'. If N, re-present the list."
+    },
+    {
+      "severity": "low",
+      "category": "missing-capability",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "Verify Network Requests" },
+      "issue": "browser_network_requests captures all requests but the workflow has no guidance on filtering out expected non-200 responses (e.g., a 304 Not Modified for cached assets is correct behavior, not a failure). The agent may flag 304s as errors, producing noise in the report.",
+      "fix": "Add a network request filtering rule: ignore 3xx redirects and 304 Not Modified (caching). Only flag 4xx and 5xx as failures. Include a note: 'OPTIONS preflight requests returning 204 are expected CORS behavior and should not be flagged.'"
+    },
+    {
+      "severity": "low",
+      "category": "missing-capability",
+      "location": { "file": "steps-c/step-04-data-verification.md", "section": "Execute Verification Queries" },
+      "issue": "No financial precision verification in DB queries. The project uses decimal.js for all financial math and Prisma Decimal for DB storage. The workflow has no query that checks for precision anomalies (e.g., values stored with unexpected scale, near-zero values that should be exactly zero, negative values in fields that should always be positive).",
+      "fix": "Add a 'Financial Data Sanity' query block: check that price fields in orders/positions are in range [0,1] (prediction market probabilities), that size/quantity fields are positive, and that decimal precision is consistent (e.g., no values like 0.10000000000000001 indicating floating-point leakage through the DB boundary)."
+    },
+    {
+      "severity": "low",
+      "category": "delight",
+      "location": { "file": "steps-c/step-06-report.md", "section": "Final Report Validation" },
+      "issue": "The report validation checklist in step-06 is executed by the same agent that wrote the report. This is self-review, which is the same coherence problem identified in CLAUDE.md as the motivation for Lad MCP review. A trivially wrong report (e.g., screenshot path is missing the directory prefix) would pass self-validation.",
+      "fix": "Add a structural validation bash command to actually verify screenshot file existence as part of step-06 (not just as a checklist item to mentally check): parse screenshot references from the report with grep and verify each file exists with 'test -f'. Print a diff list of missing files, not just a pass/fail."
+    },
+    {
+      "severity": "low",
+      "category": "delight",
+      "location": { "file": "steps-c/step-02-api-verification.md", "section": "Test Each Endpoint" },
+      "issue": "API response time is not measured. For a trading system, a /positions endpoint that takes 800ms to respond is a performance regression worth flagging. curl can capture timing with -w '%{time_total}' but this is not used.",
+      "fix": "Extend the curl command to capture response time: 'curl -s -w \"\\n%{http_code}\\n%{time_total}\" ...'. Add a performance threshold column to API findings: flag endpoints taking >500ms as WARN, >2000ms as FAIL. Include response time in the API Verification report table."
+    },
+    {
+      "severity": "low",
+      "category": "experience-gap",
+      "location": { "file": "steps-e/step-01-reassess.md", "section": "Execute Selected Stages" },
+      "issue": "Edit mode re-runs stages by loading step files, but those step files always append findings to the report rather than replacing the previous section. The instruction says 'replace the corresponding section rather than appending' but provides no mechanism for how to identify and replace the section in an existing markdown file. An agent that follows the step file literally will double-write sections.",
+      "fix": "Add explicit instructions for section replacement: read the existing report, locate the section using a known heading (e.g., '## API Verification'), replace everything between that heading and the next '---' separator with fresh content. Alternatively, have edit mode write a new report file with a '-rev2' suffix rather than mutating the original."
+    },
+    {
+      "severity": "low",
+      "category": "assumption",
+      "location": { "file": "steps-c/step-05-log-inspection.md", "section": "Browser Console Logs (Tier 2)" },
+      "issue": "Step-05 says 'If browser is still open from Step 3, or reopen it' but step-03 explicitly says to close the browser at the end. If the agent correctly closes the browser in step-03, reopening it in step-05 will clear the console message history. The console logs captured in step-05 will be empty or contain only post-close navigation messages, missing all errors from the actual verification session.",
+      "fix": "Remove the browser_close() call from step-03 (or make it conditional: 'Do NOT close the browser — step-05 needs console message history'). Alternatively, instruct the agent to capture and persist all console messages in step-03 into the report immediately, so step-05 just reads from the already-recorded report data rather than re-querying the browser."
+    }
+  ],
+  "summary": {
+    "total": 24,
+    "critical": 2,
+    "high": 6,
+    "medium": 8,
+    "low": 8
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "scanner": "skill-cohesion",
+  "status": "warning",
+  "findings": [
+    {
+      "severity": "high",
+      "category": "cohesion",
+      "location": { "file": "workflow.md", "section": "ACTIVATION MODE DETECTION" },
+      "issue": "Headless mode routing logic is duplicated between workflow.md (lines 18-84) and instructions.md (lines 96-112). Both files describe the initialization sequence and headless execution path, creating two competing sources of truth for how the workflow starts. If one is updated without the other, the workflow will have conflicting instructions.",
+      "fix": "Consolidate activation and headless routing exclusively in workflow.md (the entry point). Reduce instructions.md initialization section to a cross-reference: 'See workflow.md for activation routing.' Keep instructions.md focused on tool integration patterns, log access tiers, and screenshot handling — content unique to it."
+    },
+    {
+      "severity": "high",
+      "category": "mode",
+      "location": { "file": "workflow.md", "section": "HEADLESS MODE ROUTING" },
+      "issue": "Headless mode can be triggered by two different surface signals (--headless flag OR inferred intent like 'run full QA check'), but there is no disambiguation rule when the user's intent is ambiguous. A message like 'run QA check' could be interpreted as headless or interactive. The workflow will behave differently with no clear decision rule, creating unpredictable mode selection.",
+      "fix": "Add an explicit fallback rule: 'If intent is ambiguous and no --headless flag is present, default to interactive mode.' Document the specific trigger phrases that constitute clear headless intent vs. those that are ambiguous."
+    },
+    {
+      "severity": "medium",
+      "category": "cohesion",
+      "location": { "file": "workflow.md", "section": "WORKFLOW ARCHITECTURE" },
+      "issue": "The workflow declares a 'tri-modal step-file architecture' (Create, Validate, Edit) in workflow.md, but steps-v/ contains only one step (step-01-validate.md) and steps-e/ contains only one step (step-01-reassess.md). These modes are presented as parallel to steps-c/ (which has 7 files) but are structurally shallow single-step operations. The label 'tri-modal' overstates the symmetry.",
+      "fix": "Either rename the architecture description to accurately reflect the asymmetry (e.g., 'primary flow + two utility modes'), or expand steps-v/ and steps-e/ with dedicated sub-steps if those modes genuinely require multi-step execution. For example, Edit mode might benefit from a step-02-update-report.md separating re-execution from synthesis."
+    },
+    {
+      "severity": "medium",
+      "category": "cohesion",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "Step 7: Close Browser" },
+      "issue": "Step 3 contains a conditional 'Close Browser' instruction ('If data verification (step 04) might need the browser for UI-triggered operations, keep it open'), but step-04-data-verification.md makes no reference to using the browser and relies exclusively on mcp__postgres. This creates a dangling conditional: the criterion for keeping the browser open is never met, but the ambiguity may cause an agent to leave the browser open unnecessarily across the step boundary.",
+      "fix": "Remove the conditional in step-03's close-browser instruction. Replace with a definitive rule: 'Close the browser at the end of this step. Step 4 uses Postgres MCP only and does not require the browser.' If a future need for browser use in step 4 arises, that step's instructions should explicitly say so."
+    },
+    {
+      "severity": "medium",
+      "category": "tool-integration",
+      "location": { "file": "steps-c/step-03-ui-verification.md", "section": "Step 1-9 (all tool calls)" },
+      "issue": "Step 3 uses mcp__playwright-test__ namespace for all tool calls (e.g., mcp__playwright-test__browser_navigate, mcp__playwright-test__browser_snapshot), while instructions.md tool integration table lists both mcp__playwright and mcp__playwright-test as available. The distinction between these two namespaces is not explained anywhere in the skill. Step 5 also uses mcp__playwright-test__ for browser_console_messages. An agent without prior context on the two namespaces may use the wrong one.",
+      "fix": "Add a one-sentence disambiguation in instructions.md's Tool Integration section: e.g., 'Use mcp__playwright-test__ for all browser interactions in this workflow — it provides extended assertion tools. mcp__playwright__ is a lower-level alternative; do not mix namespaces.' Ensure all step files use mcp__playwright-test__ consistently (currently they do, but the instructions.md table listing both without guidance is the source of confusion)."
+    },
+    {
+      "severity": "medium",
+      "category": "complexity",
+      "location": { "file": "steps-c/step-05-log-inspection.md", "section": "Step 2: Browser Console Logs" },
+      "issue": "Step 5 (Log Inspection) instructs the agent to 'If browser is still open from Step 3, or reopen it' to collect console messages. This creates a stateful browser dependency between steps 3 and 5 that is not tracked in the report frontmatter. Whether the browser is open is invisible to a resumed session, making step 5 behavior indeterminate after a resume. The resume routing in step-01b correctly restores story context but has no mechanism to know browser state.",
+      "fix": "Eliminate the stateful browser carry-forward. In step 5, unconditionally open a fresh browser instance for console log collection, or accept that browser console logs are only captured during step 3 and fold that coverage into step 3's scope. If the latter, update the checklist accordingly — 'Browser console checked for JS errors' would move to step 3's checklist items, which already includes it."
+    },
+    {
+      "severity": "medium",
+      "category": "purpose",
+      "location": { "file": "checklist.md", "section": "Step 5: Log Inspection" },
+      "issue": "The checklist for Step 5 includes 'Browser console checked for JS errors' as a step-5 item, but step-03-ui-verification.md already mandates checking browser_console_messages after each page navigation (step 3 checklist item: 'No console errors during navigation'). This creates a redundancy between step 3 and step 5 for the same artifact. A report reviewer following the checklist would expect to see browser console results in two different sections.",
+      "fix": "Remove 'Browser console checked for JS errors' from the step-5 checklist since it is already covered in step-3. Step 5 checklist should only reference log tiers that are step-5 exclusive: server log, trade CSVs, and database audit logs."
+    },
+    {
+      "severity": "medium",
+      "category": "mode",
+      "location": { "file": "steps-e/step-01-reassess.md", "section": "Step 4: Execute Selected Stages" },
+      "issue": "Edit mode instructs the agent to execute selected stages by loading the corresponding step files from steps-c/. This is the correct reuse pattern, but it is not explicit about whether the re-run step files should also update the report frontmatter stepsCompleted array. If they do, a previously-complete report gets stepsCompleted reset. If they do not, the standard step instructions (which always update frontmatter) conflict with the edit mode intent.",
+      "fix": "Add an explicit override instruction in step-01-reassess.md: 'When loading steps-c/ files in edit mode, skip their frontmatter update substeps (the stepsCompleted array and lastStep fields). Instead, use the re-verification tracking block in this step (section 6) to record what was re-run.' This prevents edit mode from corrupting the original completion record."
+    },
+    {
+      "severity": "low",
+      "category": "cohesion",
+      "location": { "file": "steps-c/step-01-preflight.md", "section": "Step 5: Initialize QA Report" },
+      "issue": "Step 1's frontmatter template uses the field name 'inputs' (an array of input file paths), while step-01b-resume.md reads this field to reload context. The field is semantically 'input files to reload on resume' but the name 'inputs' is generic enough to be confused with workflow inputs broadly. Additionally, the preflight template shows 'inputs: [\"{story_file_path}\"]' but for exploratory mode there is no story file — what goes in inputs[] is unspecified.",
+      "fix": "Rename the frontmatter field to 'context_files' for clarity. Add an explicit rule in step-01-preflight.md: for exploratory mode, set 'context_files: []' (empty array). Update step-01b-resume.md to read 'context_files' instead of 'inputs'."
+    },
+    {
+      "severity": "low",
+      "category": "cohesion",
+      "location": { "file": "workflow-plan.md", "section": "Outputs" },
+      "issue": "workflow-plan.md specifies two output filename patterns: 'qa-report-{story-id}-{date}.md' for story mode and 'qa-report-exploratory-{date}.md' for exploratory mode. However, workflow.yaml's default_output_file is 'qa-report-{date}.md' (no story-id, no mode prefix). These three naming patterns are inconsistent, and step-01-preflight.md introduces a fourth variant in its instructions ('qa-report-{story-id}-{date}.md' vs 'qa-report-exploratory-{date}.md'). An agent must reconcile four sources to determine the correct filename.",
+      "fix": "Canonicalize the output filename pattern in workflow.yaml (the authoritative source). Set: 'story mode: qa-report-{story-id}-{date}.md' and 'exploratory mode: qa-report-exploratory-{date}.md'. Remove the default_output_file fallback or align it with the story-mode pattern. Remove the filename specification from workflow-plan.md and have it point to workflow.yaml as the source."
+    },
+    {
+      "severity": "low",
+      "category": "complexity",
+      "location": { "file": "workflow.yaml", "section": "variables.screenshot_dir" },
+      "issue": "workflow.yaml sets screenshot_dir to the same value as report_dir ('{test_artifacts}/qa-reports'). The comment says 'Screenshots co-located with report', which is the intent. However having two separate variables pointing to the same path creates minor cognitive overhead for anyone reading the config — they must verify both values to confirm they match. If one is ever changed without the other, screenshots and reports silently diverge.",
+      "fix": "Remove screenshot_dir as a separate variable and derive it from report_dir wherever used. In step files that reference screenshot_dir, replace with report_dir. This eliminates the duplication and prevents silent divergence."
+    },
+    {
+      "severity": "low",
+      "category": "purpose",
+      "location": { "file": "SKILL.md", "section": "entire file" },
+      "issue": "SKILL.md contains only 6 lines of content: a YAML frontmatter with name and description, and a single directive to follow workflow.md. This is functional but provides no standalone value — a developer discovering this skill directory reads two sentences before being redirected. The bmad-skill-manifest.yaml is similarly minimal (1 line: 'type: skill'). Neither file adds context beyond the redirect.",
+      "fix": "This is low severity since the redirect works correctly. Optionally enrich SKILL.md with a 3-5 line overview of what this skill does, its trigger phrases, and its key modes (story/exploratory, interactive/headless), so a developer scanning the skill directory gets oriented without opening workflow.md. No functional change required."
+    },
+    {
+      "severity": "info",
+      "category": "cohesion",
+      "location": { "file": "steps-c/step-04-data-verification.md", "section": "Step 3: Common verification queries" },
+      "issue": "The data integrity query in step 4 checks for orders with missing position references using 'WHERE position_id IS NOT NULL AND position_id NOT IN (SELECT id FROM open_positions)'. This query will silently fail to catch integrity issues if an order's position was closed (removed from open_positions). The query should also check a closed_positions or orders history table if one exists in the schema.",
+      "fix": "Informational only — this is a domain-specific query improvement, not a workflow structure issue. Consider expanding the integrity check to account for the full position lifecycle (open + closed positions). Low priority for cohesion purposes."
+    },
+    {
+      "severity": "info",
+      "category": "mode",
+      "location": { "file": "steps-v/step-01-validate.md", "section": "Step 5: Present Validation Results" },
+      "issue": "Validate mode's single step ends by offering to switch to Edit mode if issues are found. This is a good UX flow, but there is no corresponding back-path from Edit mode to Validate mode (to confirm the edits fixed the issues). The natural completion loop — Validate → find issues → Edit → re-Validate — is described for the first half but the return path is implicit.",
+      "fix": "Informational only. Add one sentence to step-01-reassess.md's final 'Present Results' section: 'You may now run Validate mode (option V from the main menu) to confirm the updated report meets all quality checks.' This closes the loop explicitly without requiring structural changes."
+    }
+  ],
+  "summary": {
+    "total": 14,
+    "critical": 0,
+    "high": 2,
+    "medium": 5,
+    "low": 4,
+    "info": 3
+  }
+}

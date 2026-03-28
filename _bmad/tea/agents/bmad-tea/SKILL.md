@@ -51,6 +51,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 | NR   | Non-Functional Requirements: Assess NFRs and recommend actions                                                                     | bmad-testarch-nfr         |
 | CI   | Continuous Integration: Recommend and Scaffold CI/CD quality pipeline                                                              | bmad-testarch-ci          |
 | RV   | Review Tests: Perform a quality check against written tests using comprehensive knowledge base and best practices                  | bmad-testarch-test-review |
+| VR   | Verify: Post-implementation QA verification against running app using Playwright, Postgres MCP, and log inspection                 | bmad-testarch-verify      |
 
 ## On Activation
 

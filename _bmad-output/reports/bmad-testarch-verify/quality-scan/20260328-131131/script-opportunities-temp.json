@@ -1,0 +1,153 @@
+{
+  "scanner": "script-opportunities",
+  "status": "warning",
+  "findings": [
+    {
+      "severity": "high",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-01-preflight.md",
+        "section": "2. Verify Application Is Running"
+      },
+      "issue": "Health check is fully deterministic: run curl, compare HTTP status code to 200. The step prose asks the LLM to 'run the command and interpret the result', but there is no interpretation involved — the pass/fail rule is explicit (200 = pass, anything else = fail). The LLM is being used as a curl wrapper.",
+      "fix": "Script: curl -s -o /dev/null -w \"%{http_code}\" $APP_URL$HEALTH_ENDPOINT. Exit 0 if result == 200, exit 1 otherwise. Print RUNNING or NOT_RUNNING plus the raw code. The LLM then reads the printed result and decides whether to stop or continue."
+    },
+    {
+      "severity": "high",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-01-preflight.md",
+        "section": "3. Check Server Log Accessibility"
+      },
+      "issue": "File existence check is a pure boolean: `test -f path && echo EXISTS || echo MISSING`. No judgment is possible here. The LLM reads the output and branches, but the branch logic is also deterministic (EXISTS → note available; MISSING → warn user). A script can do both the check and the formatted output.",
+      "fix": "Script: test -f $ENGINE_DIR/$SERVER_LOG and output a structured result (exists: true/false, path). Print the formatted note to stdout for the LLM to relay. Saves one round-trip of LLM token generation for a trivially mechanical operation."
+    },
+    {
+      "severity": "high",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-01-preflight.md",
+        "section": "4. Create Report Directory"
+      },
+      "issue": "`mkdir -p {report_dir}` is a one-liner side-effect with no judgment required. The LLM is instructed to run it, but the only possible outcomes are success (directory exists) and permission error (surface to user). This belongs in a preflight script alongside the health check.",
+      "fix": "Include mkdir -p in the preflight script. Capture exit code; on failure print a clear error for the LLM to relay."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-01-preflight.md",
+        "section": "5. Initialize QA Report"
+      },
+      "issue": "Report filename generation follows explicit deterministic rules (story mode: qa-report-{story-id}-{date}.md; exploratory: qa-report-exploratory-{date}.md) and the frontmatter is a fixed template with variable substitution. This is template rendering, not judgment. The LLM fills in the same YAML structure every time.",
+      "fix": "Script: accept mode (story|exploratory), story_id, app_url, story_file_path, timestamp as arguments. Output the filled frontmatter YAML and the initial body skeleton to the target file. LLM calls the script and receives the output path."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-02-api-verification.md",
+        "section": "2. Test Each Endpoint — A. Happy Path Test"
+      },
+      "issue": "JSON response structure validation (presence of `data` field, `timestamp` field, valid ISO 8601 timestamp, valid JSON) is fully deterministic. The LLM is instructed to 'verify' these properties by reading the raw curl output, but these are parse-and-compare operations with no interpretive component.",
+      "fix": "Script: curl endpoint, parse JSON with jq, assert .data exists, .timestamp exists, timestamp matches ISO 8601 regex. Output structured PASS/FAIL per criterion with the actual values found. LLM receives structured results and records them, rather than parsing raw JSON itself."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-02-api-verification.md",
+        "section": "2. Test Each Endpoint — B. Error Case Test"
+      },
+      "issue": "Error response format validation (presence of `error.code`, `error.message`, `error.severity` fields, appropriate HTTP status code) is structural JSON validation — deterministic with explicit pass/fail criteria.",
+      "fix": "Extend the endpoint test script to also run the error case: curl with nonexistent ID, assert HTTP 4xx, assert .error.code and .error.message and .error.severity exist in response body. Emit structured result."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-05-log-inspection.md",
+        "section": "1. Server Application Logs (Tier 2)"
+      },
+      "issue": "Three grep commands with fixed patterns (ERROR|ERR|exception|fatal and WARN|WARNING) and a tail -50 are deterministic extraction operations. The LLM is instructed to run them and then read the output. The extraction itself has no judgment component — only the interpretation of findings does.",
+      "fix": "Script: grep -c for error count, grep -c for warning count, tail -N for recent lines. Output a structured summary (error_count: N, warning_count: N, recent_lines: [...], sample_errors: [first 5 matches]). LLM receives counts and samples for interpretation, rather than processing raw log text."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-05-log-inspection.md",
+        "section": "3. CSV Trade Logs (Tier 1)"
+      },
+      "issue": "CSV structural validation (headers present, no malformed rows, non-negative prices, chronological timestamps) is deterministic. The step asks the LLM to read the CSV and assess these properties, but all checks have explicit pass/fail criteria with no judgment needed.",
+      "fix": "Script: parse CSV with awk or python, check header row matches expected columns, count rows, check price/size columns are numeric and positive, check timestamps are increasing. Output: { row_count, has_headers: bool, anomalies: [...] }. LLM interprets anomaly list, not raw CSV text."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-v/step-01-validate.md",
+        "section": "3. Validate Evidence — screenshot file existence check"
+      },
+      "issue": "The step provides an explicit bash snippet to extract screenshot references from the report and verify file existence. This is pure file system validation with deterministic pass/fail: file exists or it does not. It is already written as a script but is embedded in a prompt step, meaning the LLM must execute it and parse the MISSING/OK output itself.",
+      "fix": "Promote this bash snippet to a standalone script. Accept report_path and report_dir as arguments. Output a structured list: { screenshots: [ { name, exists: bool } ] } plus a summary count. LLM receives the structured result rather than iterating over raw shell output."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-v/step-01-validate.md",
+        "section": "2. Check Structure and 4. Validate Frontmatter"
+      },
+      "issue": "Report section completeness check (all 8 required markdown headings present) and frontmatter field validation (status == complete, stepsCompleted is array with all stages, verdict field exists) are structural text/YAML checks with explicit enumerated pass/fail criteria. No interpretation required.",
+      "fix": "Script: accept report_path. Parse YAML frontmatter (with python-frontmatter or yq), assert required fields and values. Grep markdown for required section headings (## API Verification, ## UI Verification, etc.). Output: { frontmatter_valid: bool, missing_fields: [], missing_sections: [], steps_completed: [] }."
+    },
+    {
+      "severity": "medium",
+      "category": "should-be-script",
+      "location": {
+        "file": "steps-c/step-06-report.md",
+        "section": "8. Final Report Validation"
+      },
+      "issue": "The checklist at the end of report compilation (summary section has verdict, every AC has verdict, all screenshots exist as files, no placeholder text, issues section populated, frontmatter status complete) is a set of mechanical checks with binary pass/fail outcomes. The LLM is asked to verify these by reading the report it just wrote.",
+      "fix": "Script: run the same report validation script as in steps-v/step-01-validate (they share the same checks). Reuse the validate script rather than having the LLM re-read and re-inspect the document it just produced. Output a checklist of binary results."
+    },
+    {
+      "severity": "low",
+      "category": "hybrid-opportunity",
+      "location": {
+        "file": "steps-c/step-01b-resume.md",
+        "section": "1. Load Output Document and 2. Parse Progress"
+      },
+      "issue": "Finding the most recent report (ls -t ... | head -5) and parsing YAML frontmatter fields (status, stepsCompleted, lastStep, lastSaved, inputs) is deterministic extraction. The step routes to the next step based on lastStep using a fixed lookup table — pure key-value lookup with no judgment.",
+      "fix": "Script: ls -t report_dir/qa-report-*.md | head -5 and parse the chosen file's frontmatter. Output: { report_path, status, last_step, steps_completed: [], last_saved, next_step_file, inputs: [] }. LLM uses next_step_file to load the right step — removes YAML parsing and table lookup from LLM responsibility."
+    },
+    {
+      "severity": "low",
+      "category": "pre-processing",
+      "location": {
+        "file": "steps-c/step-02-api-verification.md",
+        "section": "4. Update Report Frontmatter"
+      },
+      "issue": "Frontmatter update operations (add stage name to stepsCompleted array, update lastStep, update lastSaved timestamp) appear identically in every step (02 through 06). Each step instructs the LLM to read the file, locate the YAML block, and modify it. This is five copies of the same mechanical YAML mutation.",
+      "fix": "Script: update-report-frontmatter.sh <report_path> <completed_step>. Parses YAML, appends to stepsCompleted array, sets lastStep, sets lastSaved to now. Called at the end of each step. Eliminates five repeated YAML read-modify-write sequences from LLM prompt work."
+    },
+    {
+      "severity": "low",
+      "category": "pre-processing",
+      "location": {
+        "file": "steps-e/step-01-reassess.md",
+        "section": "2. Identify Re-verification Scope — Only failed ACs option"
+      },
+      "issue": "Parsing the report for FAIL verdicts to build a re-test list is a text extraction operation with a fixed pattern (lines matching **Verdict: FAIL**). The result is a deterministic list that requires no LLM judgment to produce.",
+      "fix": "Script: grep the report for FAIL verdict patterns, extract AC identifiers/section names, output a structured list. LLM uses the list to scope re-verification rather than reading the full report to find failures itself."
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "critical": 0,
+    "high": 3,
+    "medium": 7,
+    "low": 3
+  }
+}

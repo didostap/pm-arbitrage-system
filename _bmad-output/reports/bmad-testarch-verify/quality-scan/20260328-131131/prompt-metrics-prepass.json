@@ -1,0 +1,267 @@
+{
+  "scanner": "prompt-craft-prepass",
+  "script": "prepass-prompt-metrics.py",
+  "version": "1.0.0",
+  "skill_path": "_bmad/tea/workflows/testarch/bmad-testarch-verify",
+  "timestamp": "2026-03-28T12:11:57.024598+00:00",
+  "status": "info",
+  "skill_md_summary": {
+    "line_count": 7,
+    "token_estimate": 59,
+    "overview_lines": 0,
+    "table_count": 0,
+    "table_lines": 0,
+    "fenced_block_count": 0,
+    "fenced_block_lines": 0,
+    "section_count": 0
+  },
+  "prompt_health": {
+    "total_prompts": 4,
+    "prompts_with_config_header": 0,
+    "prompts_with_progression": 3
+  },
+  "aggregate": {
+    "total_files_scanned": 5,
+    "total_token_estimate": 2652,
+    "total_waste_patterns": 0,
+    "total_back_references": 0
+  },
+  "resource_sizes": {},
+  "files": [
+    {
+      "file": "SKILL.md",
+      "line_count": 7,
+      "token_estimate": 59,
+      "sections": [],
+      "table_count": 0,
+      "table_lines": 0,
+      "fenced_block_count": 0,
+      "fenced_block_lines": 0,
+      "waste_patterns": [],
+      "back_references": [],
+      "has_config_header": false,
+      "has_progression": false,
+      "overview_lines": 0,
+      "is_skill_md": true
+    },
+    {
+      "file": "checklist.md",
+      "line_count": 72,
+      "token_estimate": 656,
+      "sections": [
+        {
+          "level": 2,
+          "title": "Step 1: Preflight",
+          "line": 3
+        },
+        {
+          "level": 2,
+          "title": "Step 2: API Verification",
+          "line": 12
+        },
+        {
+          "level": 2,
+          "title": "Step 3: UI Verification",
+          "line": 21
+        },
+        {
+          "level": 2,
+          "title": "Step 4: Data Verification",
+          "line": 31
+        },
+        {
+          "level": 2,
+          "title": "Step 5: Log Inspection",
+          "line": 39
+        },
+        {
+          "level": 2,
+          "title": "Step 6: Report",
+          "line": 47
+        },
+        {
+          "level": 2,
+          "title": "Quality Checks",
+          "line": 58
+        },
+        {
+          "level": 2,
+          "title": "Completion Criteria",
+          "line": 66
+        }
+      ],
+      "table_count": 0,
+      "table_lines": 0,
+      "fenced_block_count": 0,
+      "fenced_block_lines": 0,
+      "waste_patterns": [],
+      "back_references": [],
+      "has_config_header": false,
+      "has_progression": true,
+      "is_skill_md": false
+    },
+    {
+      "file": "instructions.md",
+      "line_count": 113,
+      "token_estimate": 976,
+      "sections": [
+        {
+          "level": 2,
+          "title": "Overview",
+          "line": 10
+        },
+        {
+          "level": 2,
+          "title": "TOOL INTEGRATION",
+          "line": 21
+        },
+        {
+          "level": 3,
+          "title": "Playwright MCP (Browser Automation)",
+          "line": 25
+        },
+        {
+          "level": 3,
+          "title": "Postgres MCP (Database Verification)",
+          "line": 39
+        },
+        {
+          "level": 3,
+          "title": "System Tools (Logs & API)",
+          "line": 46
+        },
+        {
+          "level": 2,
+          "title": "LOG ACCESS TIERS",
+          "line": 56
+        },
+        {
+          "level": 2,
+          "title": "SCREENSHOT HANDLING",
+          "line": 67
+        },
+        {
+          "level": 2,
+          "title": "WORKFLOW ARCHITECTURE",
+          "line": 86
+        },
+        {
+          "level": 2,
+          "title": "INITIALIZATION SEQUENCE",
+          "line": 96
+        },
+        {
+          "level": 3,
+          "title": "1. Configuration Loading",
+          "line": 98
+        },
+        {
+          "level": 3,
+          "title": "2. First Step",
+          "line": 102
+        },
+        {
+          "level": 3,
+          "title": "3. Resume Support",
+          "line": 107
+        }
+      ],
+      "table_count": 3,
+      "table_lines": 20,
+      "fenced_block_count": 1,
+      "fenced_block_lines": 4,
+      "waste_patterns": [],
+      "back_references": [],
+      "has_config_header": false,
+      "has_progression": true,
+      "is_skill_md": false
+    },
+    {
+      "file": "workflow-plan.md",
+      "line_count": 26,
+      "token_estimate": 245,
+      "sections": [
+        {
+          "level": 2,
+          "title": "Create Mode (steps-c)",
+          "line": 3
+        },
+        {
+          "level": 2,
+          "title": "Validate Mode (steps-v)",
+          "line": 13
+        },
+        {
+          "level": 2,
+          "title": "Edit Mode (steps-e)",
+          "line": 17
+        },
+        {
+          "level": 2,
+          "title": "Outputs",
+          "line": 21
+        }
+      ],
+      "table_count": 0,
+      "table_lines": 0,
+      "fenced_block_count": 0,
+      "fenced_block_lines": 0,
+      "waste_patterns": [],
+      "back_references": [],
+      "has_config_header": false,
+      "has_progression": false,
+      "is_skill_md": false
+    },
+    {
+      "file": "workflow.md",
+      "line_count": 85,
+      "token_estimate": 716,
+      "sections": [
+        {
+          "level": 2,
+          "title": "ACTIVATION MODE DETECTION",
+          "line": 14
+        },
+        {
+          "level": 2,
+          "title": "WORKFLOW ARCHITECTURE",
+          "line": 28
+        },
+        {
+          "level": 2,
+          "title": "ON ACTIVATION",
+          "line": 38
+        },
+        {
+          "level": 3,
+          "title": "1. Configuration Loading",
+          "line": 40
+        },
+        {
+          "level": 3,
+          "title": "2. Mode Determination",
+          "line": 49
+        },
+        {
+          "level": 3,
+          "title": "3. Route to First Step",
+          "line": 58
+        },
+        {
+          "level": 2,
+          "title": "HEADLESS MODE ROUTING",
+          "line": 67
+        }
+      ],
+      "table_count": 0,
+      "table_lines": 0,
+      "fenced_block_count": 0,
+      "fenced_block_lines": 0,
+      "waste_patterns": [],
+      "back_references": [],
+      "has_config_header": false,
+      "has_progression": true,
+      "is_skill_md": false
+    }
+  ]
+}

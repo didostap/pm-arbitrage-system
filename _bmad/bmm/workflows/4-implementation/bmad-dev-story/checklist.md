@@ -53,6 +53,7 @@ validation-rules:
 - [ ] **Dev Agent Record Updated:** Contains relevant Implementation Notes and/or Debug Log for this work
 - [ ] **Change Log Updated:** Change Log includes clear summary of what changed and why
 - [ ] **Review Follow-ups:** All review follow-up tasks (marked [AI-Review]) completed and corresponding review items marked resolved (if applicable)
+- [ ] **QA Follow-ups:** All QA follow-up tasks (marked [AI-QA]) completed and corresponding failed ACs marked resolved (if applicable)
 - [ ] **Story Structure Compliance:** Only permitted sections of story file were modified
 
 ## 🔚 Final Status Verification

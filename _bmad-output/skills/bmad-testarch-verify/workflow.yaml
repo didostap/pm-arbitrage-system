@@ -1,0 +1,73 @@
+# Test Architect workflow: bmad-testarch-verify
+name: bmad-testarch-verify
+# prettier-ignore
+description: 'Post-implementation QA verification against running app. Use when the user says "verify story", "QA check", or "test the running app"'
+
+# Critical variables from config
+config_source: "{project-root}/_bmad/tea/config.yaml"
+output_folder: "{config_source}:output_folder"
+test_artifacts: "{config_source}:test_artifacts"
+user_name: "{config_source}:user_name"
+communication_language: "{config_source}:communication_language"
+document_output_language: "{config_source}:document_output_language"
+date: system-generated
+
+# Workflow components
+installed_path: "."
+instructions: "./instructions.md"
+validation: "./checklist.md"
+template: "./templates/qa-report-template.md"
+
+# Variables and inputs
+variables:
+  # Verification mode
+  verify_mode: "story" # story | exploratory
+  story_file: "" # Path to story file (story mode)
+  exploratory_scope: "" # Area description (exploratory mode)
+
+  # Application endpoints
+  app_url: "http://localhost:3000" # Running app base URL
+  api_url: "http://localhost:3000/api" # API base URL
+  health_endpoint: "/api/health" # Health check endpoint
+
+  # Log sources
+  server_log: "server.log" # Path to tee'd server log (relative to engine dir)
+  trade_log_dir: "data/trade-logs" # CSV trade log directory
+  engine_dir: "{project-root}/pm-arbitrage-engine" # Engine working directory
+
+  # Verification stages to run
+  stages: "all" # all | api | ui | data | logs (comma-separated)
+
+  # Report output
+  report_dir: "{test_artifacts}/qa-reports"
+  screenshot_dir: "{test_artifacts}/qa-reports" # Screenshots co-located with report
+
+# Output configuration
+default_output_file: "{test_artifacts}/qa-reports/qa-report-{date}.md"
+
+# Required tools
+required_tools:
+  - read_file # Read story files, source code, logs
+  - write_file # Create QA report
+  - create_directory # Create report directories
+  - list_files # Discover files and logs
+  - search_repo # Search codebase for context
+  - glob # Find files by pattern
+  - bash # curl for API testing, server log inspection, mkdir
+  - mcp_playwright # Browser automation for UI verification
+  - mcp_playwright_test # Extended browser testing with assertions
+  - mcp_postgres # Database state verification
+
+tags:
+  - qa
+  - verification
+  - manual-testing
+  - post-implementation
+  - test-architect
+  - playwright
+  - exploratory
+
+execution_hints:
+  interactive: true # Pause between stages in interactive mode
+  autonomous: true # Supports headless full-run mode
+  iterative: true # Can re-run specific stages

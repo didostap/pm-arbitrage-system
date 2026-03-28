@@ -1,0 +1,40 @@
+{
+  "scanner": "execution-efficiency-prepass",
+  "script": "prepass-execution-deps.py",
+  "version": "1.0.0",
+  "skill_path": "_bmad/tea/workflows/testarch/bmad-testarch-verify",
+  "timestamp": "2026-03-28T12:11:59.043043+00:00",
+  "status": "pass",
+  "dependency_graph": {
+    "manifest_found": false,
+    "stages": [
+      "checklist",
+      "instructions",
+      "workflow",
+      "workflow-plan"
+    ],
+    "hard_dependencies": {},
+    "soft_dependencies": {},
+    "cycles": [],
+    "transitive_redundancies": [],
+    "parallel_groups": [
+      [
+        "checklist",
+        "instructions",
+        "workflow",
+        "workflow-plan"
+      ]
+    ]
+  },
+  "sequential_patterns": [],
+  "issues": [],
+  "summary": {
+    "total_issues": 0,
+    "by_severity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

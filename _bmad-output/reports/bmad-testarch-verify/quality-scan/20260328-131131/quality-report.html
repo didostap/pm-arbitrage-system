@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Report: bmad-testarch-verify</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #21262d; --border: #30363d;
+  --text: #e6edf3; --text-muted: #8b949e; --text-dim: #6e7681;
+  --critical: #f85149; --high: #f0883e; --medium: #d29922; --low: #58a6ff;
+  --strength: #3fb950; --suggestion: #a371f7; --info: #8b949e;
+  --accent: #58a6ff; --accent-hover: #79c0ff;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff; --surface: #f6f8fa; --surface2: #eaeef2; --border: #d0d7de;
+    --text: #1f2328; --text-muted: #656d76; --text-dim: #8c959f;
+    --critical: #cf222e; --high: #bc4c00; --medium: #9a6700; --low: #0969da;
+    --strength: #1a7f37; --suggestion: #8250df; --info: #656d76;
+    --accent: #0969da; --accent-hover: #0550ae;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; padding: 2rem; max-width: 960px; margin: 0 auto; padding-bottom: 6rem; }
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+.badge { display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 2rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; user-select: none; }
+.badge:hover { filter: brightness(1.2); }
+.badge.active { border-color: currentColor; }
+.badge-critical { background: color-mix(in srgb, var(--critical) 20%, transparent); color: var(--critical); }
+.badge-high { background: color-mix(in srgb, var(--high) 20%, transparent); color: var(--high); }
+.badge-medium { background: color-mix(in srgb, var(--medium) 20%, transparent); color: var(--medium); }
+.badge-low { background: color-mix(in srgb, var(--low) 20%, transparent); color: var(--low); }
+.badge-strength { background: color-mix(in srgb, var(--strength) 20%, transparent); color: var(--strength); }
+.badge-suggestion, .badge-note { background: color-mix(in srgb, var(--suggestion) 20%, transparent); color: var(--suggestion); }
+.badge-high-opportunity { background: color-mix(in srgb, var(--high) 20%, transparent); color: var(--high); }
+.badge-medium-opportunity { background: color-mix(in srgb, var(--medium) 20%, transparent); color: var(--medium); }
+.badge-low-opportunity { background: color-mix(in srgb, var(--low) 20%, transparent); color: var(--low); }
+.badge-info { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
+.grade { font-size: 2rem; font-weight: 700; }
+.grade-Excellent { color: var(--strength); }
+.grade-Good { color: var(--low); }
+.grade-Fair { color: var(--medium); }
+.grade-Poor { color: var(--critical); }
+.summary-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem 2rem; margin: 1rem 0; align-items: baseline; }
+.summary-grid dt { color: var(--text-muted); font-size: 0.85rem; }
+.summary-grid dd { font-size: 0.95rem; }
+.filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+.section { border: 1px solid var(--border); border-radius: 0.5rem; margin: 0.75rem 0; overflow: hidden; }
+.section-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--surface); cursor: pointer; user-select: none; }
+.section-header:hover { background: var(--surface2); }
+.section-header .arrow { font-size: 0.7rem; transition: transform 0.15s; color: var(--text-muted); width: 1rem; }
+.section-header.open .arrow { transform: rotate(90deg); }
+.section-header .label { font-weight: 600; flex: 1; }
+.section-header .count { font-size: 0.8rem; color: var(--text-muted); }
+.section-body { display: none; }
+.section-body.open { display: block; }
+.item { display: flex; gap: 0.75rem; padding: 0.75rem 1rem; border-top: 1px solid var(--border); align-items: flex-start; }
+.item:hover { background: var(--surface); }
+.item-check { margin-top: 0.2rem; accent-color: var(--accent); flex-shrink: 0; }
+.item-body { flex: 1; min-width: 0; }
+.item-title { font-weight: 600; font-size: 0.9rem; }
+.item-file { font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted); }
+.item-desc { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+.item-action { font-size: 0.85rem; margin-top: 0.25rem; }
+.item-action strong { color: var(--strength); }
+.item-impact { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem; font-style: italic; }
+.item-actions { flex-shrink: 0; display: flex; gap: 0.25rem; }
+.copy-btn { background: none; border: 1px solid var(--border); border-radius: 0.25rem; padding: 0.2rem 0.4rem; cursor: pointer; color: var(--text-muted); font-size: 0.75rem; transition: all 0.15s; }
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { border-color: var(--strength); color: var(--strength); }
+.journey { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+.journey h4 { font-size: 0.9rem; text-transform: capitalize; }
+.journey p { font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0; }
+.journey ul { font-size: 0.85rem; padding-left: 1.25rem; margin: 0.25rem 0; }
+.journey .friction { color: var(--high); }
+.journey .bright { color: var(--strength); }
+.assessment { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+.assessment table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+.assessment th, .assessment td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); }
+.assessment th { color: var(--text-muted); font-weight: 600; }
+.sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 0.75rem 2rem; display: flex; align-items: center; justify-content: center; gap: 1rem; z-index: 100; transition: transform 0.2s; }
+.sticky-footer.hidden { transform: translateY(100%); }
+.gen-btn { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1.25rem; border-radius: 0.375rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.gen-btn:hover { background: var(--accent-hover); }
+.sel-count { font-size: 0.9rem; color: var(--text-muted); }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.visible { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; }
+.modal h3 { margin-bottom: 0.75rem; }
+.modal pre { background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; font-family: var(--mono); font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word; max-height: 50vh; overflow-y: auto; }
+.modal-actions { display: flex; gap: 0.75rem; margin-top: 1rem; justify-content: flex-end; }
+.modal-actions button { padding: 0.4rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.85rem; }
+.modal-close { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+.modal-copy { background: var(--accent); border: none; color: #fff; font-weight: 600; }
+.empty-msg { color: var(--text-dim); font-size: 0.85rem; padding: 1rem; font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>Quality Report: <span id="skill-name"></span></h1>
+<div class="subtitle" id="subtitle"></div>
+
+<div id="exec-summary"></div>
+
+<div class="filters" id="filters"></div>
+
+<div id="sections"></div>
+
+<div class="sticky-footer hidden" id="footer">
+  <span class="sel-count"><span id="sel-count">0</span> selected</span>
+  <button class="gen-btn" onclick="showBatchPrompt()">Generate Prompt</button>
+</div>
+
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 id="modal-title">Generated Prompt</h3>
+    <pre id="modal-content"></pre>
+    <div class="modal-actions">
+      <button class="modal-close" onclick="closeModal()">Close</button>
+      <button class="modal-copy" onclick="copyModal()">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script id="report-data" type="application/json">{"meta": {"skill_name": "bmad-testarch-verify", "skill_path": "_bmad/tea/workflows/testarch/bmad-testarch-verify", "timestamp": "2026-03-28T12:15:35.142715+00:00", "scanner_count": 5, "report_dir": "_bmad-output/reports/bmad-testarch-verify/quality-scan/20260328-131131"}, "executive_summary": {"total_issues": 51, "counts": {"critical": 2, "high": 11, "medium": 23, "low": 15}, "enhancement_count": 0, "strength_count": 0, "grade": "Poor", "craft_assessment": "", "overall_cohesion": ""}, "items": [{"id": "enhancement-opportunities-000", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "critical", "rank": 0, "category": "assumption", "file": "", "line": null, "title": "API testing uses unauthenticated curl. The project uses Bearer token auth (guards in common/guards/). All protected endpoints will return 401 and be recorded as failures, producing a misleading report.", "description": "", "action": "Add auth token resolution to preflight (step-01): read from .env.development or prompt user. Inject '-H \"Authorization: Bearer {token}\"' into all curl commands in step-02. Document that unauthenticated endpoints are tested without headers.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-001", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "critical", "rank": 0, "category": "assumption", "file": "", "line": null, "title": "The workflow hardcodes app_url as 'http://localhost:3000' but the dashboard SPA runs separately on a different port (pm-arbitrage-dashboard/ is a sibling repo). Step-03 UI verification navigates to app_url which would reach the NestJS backend, not the React SPA dashboard. The UI step would test wrong content or fail.", "description": "", "action": "Add a 'dashboard_url' variable (e.g., 'http://localhost:5173' for Vite dev) to workflow.yaml. Use dashboard_url in step-03 for Playwright navigation and app_url/api_url exclusively for API calls in step-02. Update preflight health checks to verify both services.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-000", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "high", "rank": 1, "category": "cohesion", "file": "", "line": null, "title": "Headless mode routing logic is duplicated between workflow.md (lines 18-84) and instructions.md (lines 96-112). Both files describe the initialization sequence and headless execution path, creating two competing sources of truth for how the workflow starts. If one is updated without the other, the workflow will have conflicting instructions.", "description": "", "action": "Consolidate activation and headless routing exclusively in workflow.md (the entry point). Reduce instructions.md initialization section to a cross-reference: 'See workflow.md for activation routing.' Keep instructions.md focused on tool integration patterns, log access tiers, and screenshot handling — content unique to it.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-001", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "high", "rank": 1, "category": "mode", "file": "", "line": null, "title": "Headless mode can be triggered by two different surface signals (--headless flag OR inferred intent like 'run full QA check'), but there is no disambiguation rule when the user's intent is ambiguous. A message like 'run QA check' could be interpreted as headless or interactive. The workflow will behave differently with no clear decision rule, creating unpredictable mode selection.", "description": "", "action": "Add an explicit fallback rule: 'If intent is ambiguous and no --headless flag is present, default to interactive mode.' Document the specific trigger phrases that constitute clear headless intent vs. those that are ambiguous.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-002", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "edge-case", "file": "", "line": null, "title": "No handling for authentication-gated UI. If the dashboard requires login (the engine uses Bearer token guards), Playwright will land on a login screen or blank page. The workflow has no login flow, no cookie/token injection, and no detection of redirect-to-login behavior.", "description": "", "action": "Add a 'ui_auth' section to preflight: detect if app_url redirects (browser_network_requests after navigate, check for 401 or redirect URL). If auth is required, add an optional login step using browser_fill_form with credentials from config. Document a 'skip_auth: true' escape hatch for apps without UI auth.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-003", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "edge-case", "file": "", "line": null, "title": "WebSocket/real-time data is not tested. The project has a WebSocket gateway (dashboard/ module) that pushes live trading data. The workflow has no mechanism to verify WS connections are established, that real-time updates arrive, or that the UI reflects live state changes. A story that implements WS push could pass all static checks and still be broken.", "description": "", "action": "Add a 'Step 3b: Real-time Verification' sub-section in step-03 (or a new step). Use browser_evaluate to check WebSocket readyState: 'window.wsConnection?.readyState'. Use browser_wait_for to wait for a DOM change after a known event. Add a check in browser_network_requests or browser_console_messages for WS upgrade headers/messages.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-004", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "missing-capability", "file": "", "line": null, "title": "No authentication header testing. The workflow never tests that endpoints correctly reject requests without a valid token (security boundary). An endpoint that accidentally skips auth would pass all current checks.", "description": "", "action": "Add an 'Auth Boundary Test' as a mandatory step in step-02: for each protected endpoint, send a request without Authorization header and verify 401 is returned. Also test with an invalid token (e.g., 'Bearer invalid') and expect 401 or 403. Record results as a separate security evidence item.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-005", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "edge-case", "file": "", "line": null, "title": "Health check only verifies HTTP 200 but not application readiness. NestJS can return 200 on /health before all modules are initialized (e.g., before DB connection pool is ready, before WebSocket gateway is live). A partially-initialized app would pass preflight but fail subsequent stages with confusing errors.", "description": "", "action": "Extend the health check to parse the response body and verify key readiness fields (e.g., 'db: ok', 'wsGateway: ok'). If the health endpoint returns a structured health object, verify constituent service statuses. Add a short retry loop (3 attempts, 2s apart) to handle slow startup.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-006", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "experience-gap", "file": "", "line": null, "title": "Resume routing uses lastStep name matching but the step names in the lookup table ('preflight', 'api-verification') must exactly match what was written to stepsCompleted in each step file. A single naming inconsistency (e.g., 'api-verification' vs 'apiVerification') will cause resume to silently repeat a completed step or skip to the wrong one. There is no validation of this match.", "description": "", "action": "Define step name constants as a single enum or list in workflow.yaml and reference them in both the step frontmatter and the resume routing table. Add a resume validation check: if lastStep value is not in the known step sequence, warn the user and offer to restart from a manually selected step.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-007", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "high", "rank": 1, "category": "missing-capability", "file": "", "line": null, "title": "No responsive/viewport testing. The dashboard is a React SPA. Operators may use it on different screen sizes. There is no check for layout breakage at narrow viewports (e.g., mobile or small laptop). Data tables in particular are prone to overflow or column hiding.", "description": "", "action": "Add an optional 'Viewport Test' sub-section: use browser_resize to set viewport to 1280x800 (default), then 1024x768 (small laptop), capture screenshots at each. Look for horizontal scrollbars or clipped content in browser_snapshot (overflow indicators). Mark as WARN rather than FAIL for minor layout issues.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "script-opportunities-000", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "high", "rank": 1, "category": "should-be-script", "file": "", "line": null, "title": "Health check is fully deterministic: run curl, compare HTTP status code to 200. The step prose asks the LLM to 'run the command and interpret the result', but there is no interpretation involved — the pass/fail rule is explicit (200 = pass, anything else = fail). The LLM is being used as a curl wrapper.", "description": "", "action": "Script: curl -s -o /dev/null -w \"%{http_code}\" $APP_URL$HEALTH_ENDPOINT. Exit 0 if result == 200, exit 1 otherwise. Print RUNNING or NOT_RUNNING plus the raw code. The LLM then reads the printed result and decides whether to stop or continue.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-001", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "high", "rank": 1, "category": "should-be-script", "file": "", "line": null, "title": "File existence check is a pure boolean: `test -f path && echo EXISTS || echo MISSING`. No judgment is possible here. The LLM reads the output and branches, but the branch logic is also deterministic (EXISTS → note available; MISSING → warn user). A script can do both the check and the formatted output.", "description": "", "action": "Script: test -f $ENGINE_DIR/$SERVER_LOG and output a structured result (exists: true/false, path). Print the formatted note to stdout for the LLM to relay. Saves one round-trip of LLM token generation for a trivially mechanical operation.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-002", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "high", "rank": 1, "category": "should-be-script", "file": "", "line": null, "title": "`mkdir -p {report_dir}` is a one-liner side-effect with no judgment required. The LLM is instructed to run it, but the only possible outcomes are success (directory exists) and permission error (surface to user). This belongs in a preflight script alongside the health check.", "description": "", "action": "Include mkdir -p in the preflight script. Capture exit code; on failure print a clear error for the LLM to relay.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "skill-cohesion-002", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "cohesion", "file": "", "line": null, "title": "The workflow declares a 'tri-modal step-file architecture' (Create, Validate, Edit) in workflow.md, but steps-v/ contains only one step (step-01-validate.md) and steps-e/ contains only one step (step-01-reassess.md). These modes are presented as parallel to steps-c/ (which has 7 files) but are structurally shallow single-step operations. The label 'tri-modal' overstates the symmetry.", "description": "", "action": "Either rename the architecture description to accurately reflect the asymmetry (e.g., 'primary flow + two utility modes'), or expand steps-v/ and steps-e/ with dedicated sub-steps if those modes genuinely require multi-step execution. For example, Edit mode might benefit from a step-02-update-report.md separating re-execution from synthesis.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-003", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "cohesion", "file": "", "line": null, "title": "Step 3 contains a conditional 'Close Browser' instruction ('If data verification (step 04) might need the browser for UI-triggered operations, keep it open'), but step-04-data-verification.md makes no reference to using the browser and relies exclusively on mcp__postgres. This creates a dangling conditional: the criterion for keeping the browser open is never met, but the ambiguity may cause an agent to leave the browser open unnecessarily across the step boundary.", "description": "", "action": "Remove the conditional in step-03's close-browser instruction. Replace with a definitive rule: 'Close the browser at the end of this step. Step 4 uses Postgres MCP only and does not require the browser.' If a future need for browser use in step 4 arises, that step's instructions should explicitly say so.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-004", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "tool-integration", "file": "", "line": null, "title": "Step 3 uses mcp__playwright-test__ namespace for all tool calls (e.g., mcp__playwright-test__browser_navigate, mcp__playwright-test__browser_snapshot), while instructions.md tool integration table lists both mcp__playwright and mcp__playwright-test as available. The distinction between these two namespaces is not explained anywhere in the skill. Step 5 also uses mcp__playwright-test__ for browser_console_messages. An agent without prior context on the two namespaces may use the wrong one.", "description": "", "action": "Add a one-sentence disambiguation in instructions.md's Tool Integration section: e.g., 'Use mcp__playwright-test__ for all browser interactions in this workflow — it provides extended assertion tools. mcp__playwright__ is a lower-level alternative; do not mix namespaces.' Ensure all step files use mcp__playwright-test__ consistently (currently they do, but the instructions.md table listing both without guidance is the source of confusion).", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-005", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "complexity", "file": "", "line": null, "title": "Step 5 (Log Inspection) instructs the agent to 'If browser is still open from Step 3, or reopen it' to collect console messages. This creates a stateful browser dependency between steps 3 and 5 that is not tracked in the report frontmatter. Whether the browser is open is invisible to a resumed session, making step 5 behavior indeterminate after a resume. The resume routing in step-01b correctly restores story context but has no mechanism to know browser state.", "description": "", "action": "Eliminate the stateful browser carry-forward. In step 5, unconditionally open a fresh browser instance for console log collection, or accept that browser console logs are only captured during step 3 and fold that coverage into step 3's scope. If the latter, update the checklist accordingly — 'Browser console checked for JS errors' would move to step 3's checklist items, which already includes it.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-006", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "purpose", "file": "", "line": null, "title": "The checklist for Step 5 includes 'Browser console checked for JS errors' as a step-5 item, but step-03-ui-verification.md already mandates checking browser_console_messages after each page navigation (step 3 checklist item: 'No console errors during navigation'). This creates a redundancy between step 3 and step 5 for the same artifact. A report reviewer following the checklist would expect to see browser console results in two different sections.", "description": "", "action": "Remove 'Browser console checked for JS errors' from the step-5 checklist since it is already covered in step-3. Step 5 checklist should only reference log tiers that are step-5 exclusive: server log, trade CSVs, and database audit logs.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-007", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "medium", "rank": 2, "category": "mode", "file": "", "line": null, "title": "Edit mode instructs the agent to execute selected stages by loading the corresponding step files from steps-c/. This is the correct reuse pattern, but it is not explicit about whether the re-run step files should also update the report frontmatter stepsCompleted array. If they do, a previously-complete report gets stepsCompleted reset. If they do not, the standard step instructions (which always update frontmatter) conflict with the edit mode intent.", "description": "", "action": "Add an explicit override instruction in step-01-reassess.md: 'When loading steps-c/ files in edit mode, skip their frontmatter update substeps (the stepsCompleted array and lastStep fields). Instead, use the re-verification tracking block in this step (section 6) to record what was re-run.' This prevents edit mode from corrupting the original completion record.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-008", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "edge-case", "file": "", "line": null, "title": "curl commands use -s (silent) which hides connection errors. If the request times out or the connection is reset, curl exits with a non-zero code but the bash substitution silently returns empty output. The workflow has no timeout flag and no curl error code check, so a hung endpoint appears as a blank response rather than a clearly labelled FAIL.", "description": "", "action": "Add '--max-time 10 --connect-timeout 5' to all curl commands. Capture both the HTTP code and the exit code: 'HTTP_CODE=$(curl ...) ; CURL_EXIT=$?'. If CURL_EXIT != 0, record as FAIL: 'Connection failed (exit code {CURL_EXIT})' rather than trying to parse empty output.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-009", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "edge-case", "file": "", "line": null, "title": "The orphaned orders query checks position_id NOT IN (SELECT id FROM open_positions) but if open_positions is empty (no trades have run), this returns all orders with position_id set — which is correct behavior in a fresh environment, not a bug. The workflow has no guidance on distinguishing 'expected empty state' from 'data integrity error'.", "description": "", "action": "Add context-sensitive interpretation guidance: before running integrity queries, check if the system has ever run trades (count orders > 0). If no trades exist, mark integrity queries as N/A rather than PASS/FAIL. Document 'empty-state baseline' as a normal condition and note it explicitly in the report.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-010", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "experience-gap", "file": "", "line": null, "title": "No guidance for slow-loading pages or async data. The React SPA uses TanStack Query for data fetching. After navigation, data may still be loading when browser_snapshot is taken. The agent may see 'Loading...' spinner states and incorrectly record them as errors or incorrectly assert on stale data.", "description": "", "action": "Add a browser_wait_for call after each navigation: 'browser_wait_for(selector: \"[data-status=loaded]\", timeout: 10000)' or 'browser_wait_for(text_not_visible: \"Loading...\")'. Provide guidance: if loading state persists after 10s, record as WARN: 'Data fetch timeout' rather than PASS.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-011", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "experience-gap", "file": "", "line": null, "title": "grep pattern 'error|ERR|exception|fatal' is case-insensitive but will match false positives: 'referrer', 'ErrorBoundary', 'handleError' (function name), 'assertError' (test), 'currentError' (variable). In a NestJS app with structured JSON logs, these noise hits dilute real errors and may cause the agent to spend time investigating benign matches.", "description": "", "action": "Scope the grep to JSON log severity fields: 'grep -P '\"level\":\\s*\"(error|fatal)\"' to match only genuine log entries at error/fatal level. Provide the grep command for both formatted JSON and plain text output formats. Add a note: 'if match count exceeds 20, limit to last 5 distinct correlationIds to avoid log noise overload'.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-012", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "missing-capability", "file": "", "line": null, "title": "No pagination or list endpoint testing. Many REST endpoints return lists (positions, orders, matches). The workflow only verifies structure but never tests pagination parameters (page, limit, offset), empty-list responses (when no data exists), or large-dataset performance. A broken pagination implementation would be invisible.", "description": "", "action": "Add a 'List Endpoint Patterns' section in step-02: for endpoints returning arrays, test with explicit pagination params (?page=1&limit=10), verify 'count' field in response matches array length, and test with limit=0 or page=9999 to verify empty-page handling returns { data: [], count: 0 } rather than an error.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-013", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "assumption", "file": "", "line": null, "title": "The workflow assumes Postgres MCP is pre-configured with the correct connection string pointing to the project database. If Postgres MCP is pointed at a different database or not configured, mcp__postgres__list_schemas() will either error or return schemas from the wrong DB. There is no connection verification or database name check.", "description": "", "action": "Add a database identity check at the start of step-04: 'SELECT current_database(), current_schema()' and verify the database name matches the expected project DB (e.g., 'pm_arbitrage'). If wrong database is connected, fail the step immediately with clear instructions to reconfigure Postgres MCP rather than running queries on the wrong DB.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-014", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "assumption", "file": "", "line": null, "title": "The stages variable ('all' | 'api' | 'ui' | 'data' | 'logs') is defined but no step file actually reads or enforces this variable. If a user sets stages: 'api,ui' to skip data and log steps, the workflow will still execute all stages because step files load unconditionally via nextStepFile chaining.", "description": "", "action": "Add a 'Check Stage Gate' section at the top of each step-02 through step-05: 'If {stages} != \"all\" AND this stage name is not in {stages}, skip to next step and note in report as N/A.' Alternatively, handle stage filtering in the headless mode routing in workflow.md.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-015", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "delight", "file": "", "line": null, "title": "The summary table lacks timing data. Knowing how long each stage took is valuable for identifying slow steps (a 45-second API test stage suggests timeout issues). The report has a 'Duration' field for total time but no per-stage breakdown.", "description": "", "action": "Add a 'Stage Timing' section to the report template: a table with columns 'Stage | Start | End | Duration'. Record start/end timestamps at the top and bottom of each step file's MANDATORY SEQUENCE. Include total wall-clock time in the Summary table.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-016", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "medium", "rank": 2, "category": "delight", "file": "", "line": null, "title": "The report has no test coverage metric. A QA report that says '5/5 ACs PASS' without indicating how many ACs were untestable (e.g., not observable via the current tool set) overstates confidence. Stories often have ACs that cannot be verified through browser/API/DB alone (e.g., timing behavior, memory cleanup).", "description": "", "action": "Add a 'BLOCKED' verdict category alongside PASS/FAIL for ACs that cannot be verified by the available tools. Update the summary table to include 'ACs Blocked: N' with a reason column. This gives honest coverage signal rather than silently omitting unverifiable ACs.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "script-opportunities-003", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "Report filename generation follows explicit deterministic rules (story mode: qa-report-{story-id}-{date}.md; exploratory: qa-report-exploratory-{date}.md) and the frontmatter is a fixed template with variable substitution. This is template rendering, not judgment. The LLM fills in the same YAML structure every time.", "description": "", "action": "Script: accept mode (story|exploratory), story_id, app_url, story_file_path, timestamp as arguments. Output the filled frontmatter YAML and the initial body skeleton to the target file. LLM calls the script and receives the output path.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-004", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "JSON response structure validation (presence of `data` field, `timestamp` field, valid ISO 8601 timestamp, valid JSON) is fully deterministic. The LLM is instructed to 'verify' these properties by reading the raw curl output, but these are parse-and-compare operations with no interpretive component.", "description": "", "action": "Script: curl endpoint, parse JSON with jq, assert .data exists, .timestamp exists, timestamp matches ISO 8601 regex. Output structured PASS/FAIL per criterion with the actual values found. LLM receives structured results and records them, rather than parsing raw JSON itself.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-005", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "Error response format validation (presence of `error.code`, `error.message`, `error.severity` fields, appropriate HTTP status code) is structural JSON validation — deterministic with explicit pass/fail criteria.", "description": "", "action": "Extend the endpoint test script to also run the error case: curl with nonexistent ID, assert HTTP 4xx, assert .error.code and .error.message and .error.severity exist in response body. Emit structured result.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-006", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "Three grep commands with fixed patterns (ERROR|ERR|exception|fatal and WARN|WARNING) and a tail -50 are deterministic extraction operations. The LLM is instructed to run them and then read the output. The extraction itself has no judgment component — only the interpretation of findings does.", "description": "", "action": "Script: grep -c for error count, grep -c for warning count, tail -N for recent lines. Output a structured summary (error_count: N, warning_count: N, recent_lines: [...], sample_errors: [first 5 matches]). LLM receives counts and samples for interpretation, rather than processing raw log text.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-007", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "CSV structural validation (headers present, no malformed rows, non-negative prices, chronological timestamps) is deterministic. The step asks the LLM to read the CSV and assess these properties, but all checks have explicit pass/fail criteria with no judgment needed.", "description": "", "action": "Script: parse CSV with awk or python, check header row matches expected columns, count rows, check price/size columns are numeric and positive, check timestamps are increasing. Output: { row_count, has_headers: bool, anomalies: [...] }. LLM interprets anomaly list, not raw CSV text.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-008", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "The step provides an explicit bash snippet to extract screenshot references from the report and verify file existence. This is pure file system validation with deterministic pass/fail: file exists or it does not. It is already written as a script but is embedded in a prompt step, meaning the LLM must execute it and parse the MISSING/OK output itself.", "description": "", "action": "Promote this bash snippet to a standalone script. Accept report_path and report_dir as arguments. Output a structured list: { screenshots: [ { name, exists: bool } ] } plus a summary count. LLM receives the structured result rather than iterating over raw shell output.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-009", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "Report section completeness check (all 8 required markdown headings present) and frontmatter field validation (status == complete, stepsCompleted is array with all stages, verdict field exists) are structural text/YAML checks with explicit enumerated pass/fail criteria. No interpretation required.", "description": "", "action": "Script: accept report_path. Parse YAML frontmatter (with python-frontmatter or yq), assert required fields and values. Grep markdown for required section headings (## API Verification, ## UI Verification, etc.). Output: { frontmatter_valid: bool, missing_fields: [], missing_sections: [], steps_completed: [] }.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-010", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "medium", "rank": 2, "category": "should-be-script", "file": "", "line": null, "title": "The checklist at the end of report compilation (summary section has verdict, every AC has verdict, all screenshots exist as files, no placeholder text, issues section populated, frontmatter status complete) is a set of mechanical checks with binary pass/fail outcomes. The LLM is asked to verify these by reading the report it just wrote.", "description": "", "action": "Script: run the same report validation script as in steps-v/step-01-validate (they share the same checks). Reuse the validate script rather than having the LLM re-read and re-inspect the document it just produced. Output a checklist of binary results.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "skill-cohesion-008", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "low", "rank": 3, "category": "cohesion", "file": "", "line": null, "title": "Step 1's frontmatter template uses the field name 'inputs' (an array of input file paths), while step-01b-resume.md reads this field to reload context. The field is semantically 'input files to reload on resume' but the name 'inputs' is generic enough to be confused with workflow inputs broadly. Additionally, the preflight template shows 'inputs: [\"{story_file_path}\"]' but for exploratory mode there is no story file — what goes in inputs[] is unspecified.", "description": "", "action": "Rename the frontmatter field to 'context_files' for clarity. Add an explicit rule in step-01-preflight.md: for exploratory mode, set 'context_files: []' (empty array). Update step-01b-resume.md to read 'context_files' instead of 'inputs'.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-009", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "low", "rank": 3, "category": "cohesion", "file": "", "line": null, "title": "workflow-plan.md specifies two output filename patterns: 'qa-report-{story-id}-{date}.md' for story mode and 'qa-report-exploratory-{date}.md' for exploratory mode. However, workflow.yaml's default_output_file is 'qa-report-{date}.md' (no story-id, no mode prefix). These three naming patterns are inconsistent, and step-01-preflight.md introduces a fourth variant in its instructions ('qa-report-{story-id}-{date}.md' vs 'qa-report-exploratory-{date}.md'). An agent must reconcile four sources to determine the correct filename.", "description": "", "action": "Canonicalize the output filename pattern in workflow.yaml (the authoritative source). Set: 'story mode: qa-report-{story-id}-{date}.md' and 'exploratory mode: qa-report-exploratory-{date}.md'. Remove the default_output_file fallback or align it with the story-mode pattern. Remove the filename specification from workflow-plan.md and have it point to workflow.yaml as the source.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-010", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "low", "rank": 3, "category": "complexity", "file": "", "line": null, "title": "workflow.yaml sets screenshot_dir to the same value as report_dir ('{test_artifacts}/qa-reports'). The comment says 'Screenshots co-located with report', which is the intent. However having two separate variables pointing to the same path creates minor cognitive overhead for anyone reading the config — they must verify both values to confirm they match. If one is ever changed without the other, screenshots and reports silently diverge.", "description": "", "action": "Remove screenshot_dir as a separate variable and derive it from report_dir wherever used. In step files that reference screenshot_dir, replace with report_dir. This eliminates the duplication and prevents silent divergence.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-011", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "low", "rank": 3, "category": "purpose", "file": "", "line": null, "title": "SKILL.md contains only 6 lines of content: a YAML frontmatter with name and description, and a single directive to follow workflow.md. This is functional but provides no standalone value — a developer discovering this skill directory reads two sentences before being redirected. The bmad-skill-manifest.yaml is similarly minimal (1 line: 'type: skill'). Neither file adds context beyond the redirect.", "description": "", "action": "This is low severity since the redirect works correctly. Optionally enrich SKILL.md with a 3-5 line overview of what this skill does, its trigger phrases, and its key modes (story/exploratory, interactive/headless), so a developer scanning the skill directory gets oriented without opening workflow.md. No functional change required.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-017", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "edge-case", "file": "", "line": null, "title": "Trade CSV reading uses 'date +%Y-%m-%d' which generates today's system date. If the server started at 23:55 and QA runs at 00:05 the next day, today's trade log will be empty while yesterday's log contains the relevant trades. The QA agent will report 'No trades today' incorrectly.", "description": "", "action": "Also read yesterday's trade log: 'cat {trade_log_dir}/trades-$(date -d yesterday +%Y-%m-%d).csv 2>/dev/null'. Alternatively, list the three most recent log files and read the one(s) with recent modification timestamps: 'ls -t {trade_log_dir}/trades-*.csv | head -3'.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-018", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "edge-case", "file": "", "line": null, "title": "Resume mode finds reports with 'ls -t {report_dir}/qa-report-*.md | head -5' but if the same story was verified multiple times, multiple reports exist. The agent presents a list but there is no guidance on how to handle a user who picks a report from a different story than what they want to resume — the reloaded context (story file path in inputs[]) may point to a different story.", "description": "", "action": "After loading the report and reloading context from inputs[], display the story ID and scope from the report frontmatter and ask: 'This report is for story {story_id}. Is this the correct session to resume? [Y/N]'. If N, re-present the list.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-019", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "missing-capability", "file": "", "line": null, "title": "browser_network_requests captures all requests but the workflow has no guidance on filtering out expected non-200 responses (e.g., a 304 Not Modified for cached assets is correct behavior, not a failure). The agent may flag 304s as errors, producing noise in the report.", "description": "", "action": "Add a network request filtering rule: ignore 3xx redirects and 304 Not Modified (caching). Only flag 4xx and 5xx as failures. Include a note: 'OPTIONS preflight requests returning 204 are expected CORS behavior and should not be flagged.'", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-020", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "missing-capability", "file": "", "line": null, "title": "No financial precision verification in DB queries. The project uses decimal.js for all financial math and Prisma Decimal for DB storage. The workflow has no query that checks for precision anomalies (e.g., values stored with unexpected scale, near-zero values that should be exactly zero, negative values in fields that should always be positive).", "description": "", "action": "Add a 'Financial Data Sanity' query block: check that price fields in orders/positions are in range [0,1] (prediction market probabilities), that size/quantity fields are positive, and that decimal precision is consistent (e.g., no values like 0.10000000000000001 indicating floating-point leakage through the DB boundary).", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-021", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "delight", "file": "", "line": null, "title": "The report validation checklist in step-06 is executed by the same agent that wrote the report. This is self-review, which is the same coherence problem identified in CLAUDE.md as the motivation for Lad MCP review. A trivially wrong report (e.g., screenshot path is missing the directory prefix) would pass self-validation.", "description": "", "action": "Add a structural validation bash command to actually verify screenshot file existence as part of step-06 (not just as a checklist item to mentally check): parse screenshot references from the report with grep and verify each file exists with 'test -f'. Print a diff list of missing files, not just a pass/fail.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-022", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "delight", "file": "", "line": null, "title": "API response time is not measured. For a trading system, a /positions endpoint that takes 800ms to respond is a performance regression worth flagging. curl can capture timing with -w '%{time_total}' but this is not used.", "description": "", "action": "Extend the curl command to capture response time: 'curl -s -w \"\\n%{http_code}\\n%{time_total}\" ...'. Add a performance threshold column to API findings: flag endpoints taking >500ms as WARN, >2000ms as FAIL. Include response time in the API Verification report table.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-023", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "experience-gap", "file": "", "line": null, "title": "Edit mode re-runs stages by loading step files, but those step files always append findings to the report rather than replacing the previous section. The instruction says 'replace the corresponding section rather than appending' but provides no mechanism for how to identify and replace the section in an existing markdown file. An agent that follows the step file literally will double-write sections.", "description": "", "action": "Add explicit instructions for section replacement: read the existing report, locate the section using a known heading (e.g., '## API Verification'), replace everything between that heading and the next '---' separator with fresh content. Alternatively, have edit mode write a new report file with a '-rev2' suffix rather than mutating the original.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "enhancement-opportunities-024", "scanner": "enhancement-opportunities", "section": "creative", "type": "issue", "severity": "low", "rank": 3, "category": "assumption", "file": "", "line": null, "title": "Step-05 says 'If browser is still open from Step 3, or reopen it' but step-03 explicitly says to close the browser at the end. If the agent correctly closes the browser in step-03, reopening it in step-05 will clear the console message history. The console logs captured in step-05 will be empty or contain only post-close navigation messages, missing all errors from the actual verification session.", "description": "", "action": "Remove the browser_close() call from step-03 (or make it conditional: 'Do NOT close the browser — step-05 needs console message history'). Alternatively, instruct the agent to capture and persist all console messages in step-03 into the report immediately, so step-05 just reads from the already-recorded report data rather than re-querying the browser.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "script-opportunities-011", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "low", "rank": 3, "category": "hybrid-opportunity", "file": "", "line": null, "title": "Finding the most recent report (ls -t ... | head -5) and parsing YAML frontmatter fields (status, stepsCompleted, lastStep, lastSaved, inputs) is deterministic extraction. The step routes to the next step based on lastStep using a fixed lookup table — pure key-value lookup with no judgment.", "description": "", "action": "Script: ls -t report_dir/qa-report-*.md | head -5 and parse the chosen file's frontmatter. Output: { report_path, status, last_step, steps_completed: [], last_saved, next_step_file, inputs: [] }. LLM uses next_step_file to load the right step — removes YAML parsing and table lookup from LLM responsibility.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-012", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "low", "rank": 3, "category": "pre-processing", "file": "", "line": null, "title": "Frontmatter update operations (add stage name to stepsCompleted array, update lastStep, update lastSaved timestamp) appear identically in every step (02 through 06). Each step instructs the LLM to read the file, locate the YAML block, and modify it. This is five copies of the same mechanical YAML mutation.", "description": "", "action": "Script: update-report-frontmatter.sh <report_path> <completed_step>. Parses YAML, appends to stepsCompleted array, sets lastStep, sets lastSaved to now. Called at the end of each step. Eliminates five repeated YAML read-modify-write sequences from LLM prompt work.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "script-opportunities-013", "scanner": "script-opportunities", "section": "script-opportunities", "type": "issue", "severity": "low", "rank": 3, "category": "pre-processing", "file": "", "line": null, "title": "Parsing the report for FAIL verdicts to build a re-test list is a text extraction operation with a fixed pattern (lines matching **Verdict: FAIL**). The result is a deterministic list that requires no LLM judgment to produce.", "description": "", "action": "Script: grep the report for FAIL verdict patterns, extract AC identifiers/section names, output a structured list. LLM uses the list to scope re-verification rather than reading the full report to find failures itself.", "impact": "", "extra": {}, "selectable": true, "action_type": "create-script"}, {"id": "skill-cohesion-012", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "info", "rank": 5, "category": "cohesion", "file": "", "line": null, "title": "The data integrity query in step 4 checks for orders with missing position references using 'WHERE position_id IS NOT NULL AND position_id NOT IN (SELECT id FROM open_positions)'. This query will silently fail to catch integrity issues if an order's position was closed (removed from open_positions). The query should also check a closed_positions or orders history table if one exists in the schema.", "description": "", "action": "Informational only — this is a domain-specific query improvement, not a workflow structure issue. Consider expanding the integrity check to account for the full position lifecycle (open + closed positions). Low priority for cohesion purposes.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "skill-cohesion-013", "scanner": "skill-cohesion", "section": "cohesion", "type": "issue", "severity": "info", "rank": 5, "category": "mode", "file": "", "line": null, "title": "Validate mode's single step ends by offering to switch to Edit mode if issues are found. This is a good UX flow, but there is no corresponding back-path from Edit mode to Validate mode (to confirm the edits fixed the issues). The natural completion loop — Validate → find issues → Edit → re-Validate — is described for the first half but the return path is implicit.", "description": "", "action": "Informational only. Add one sentence to step-01-reassess.md's final 'Present Results' section: 'You may now run Validate mode (option V from the main menu) to confirm the updated report meets all quality checks.' This closes the loop explicitly without requiring structural changes.", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}, {"id": "scripts-000", "scanner": "scripts", "section": "scripts", "type": "issue", "severity": "info", "rank": 5, "category": "none", "file": "scripts/", "line": null, "title": "No scripts/ directory found — nothing to scan", "description": "", "action": "", "impact": "", "extra": {}, "selectable": true, "action_type": "fix"}], "journeys": [], "assessments": {"prompt_health": {"total_prompts": 4, "prompts_with_config_header": 0, "prompts_with_progression": 3}}, "section_labels": {"structural": "Structural", "structure-capabilities": "Structure & Capabilities", "prompt-craft": "Prompt Craft", "efficiency": "Efficiency", "cohesion": "Cohesion", "quality": "Path & Script Standards", "scripts": "Scripts", "script-opportunities": "Script Opportunities", "creative": "Creative & Enhancements"}}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('report-data').textContent);
+const selected = new Set();
+
+function init() {
+  const m = DATA.meta;
+  const es = DATA.executive_summary;
+  document.getElementById('skill-name').textContent = m.skill_name;
+  document.getElementById('subtitle').textContent = `${m.skill_path} \u2022 ${m.timestamp.split('T')[0]} \u2022 ${m.scanner_count} scanners`;
+
+  // Executive summary
+  let html = `<div class="grade grade-${es.grade}">${es.grade}</div>`;
+  html += `<dl class="summary-grid">`;
+  html += `<dt>Issues</dt><dd>${es.total_issues} total \u2014 ${es.counts.critical} critical, ${es.counts.high} high, ${es.counts.medium} medium, ${es.counts.low} low</dd>`;
+  if (es.enhancement_count) html += `<dt>Enhancements</dt><dd>${es.enhancement_count} opportunities identified</dd>`;
+  if (es.strength_count) html += `<dt>Strengths</dt><dd>${es.strength_count} noted</dd>`;
+  if (es.craft_assessment) html += `<dt>Craft</dt><dd>${esc(es.craft_assessment)}</dd>`;
+  if (es.overall_cohesion) html += `<dt>Cohesion</dt><dd>${esc(es.overall_cohesion)}</dd>`;
+  html += `</dl>`;
+  document.getElementById('exec-summary').innerHTML = html;
+
+  // Severity filters
+  renderFilters();
+
+  // Sections
+  renderSections();
+}
+
+// --- Severity filters ---
+const activeFilters = new Set(['critical','high','medium','low','high-opportunity','medium-opportunity','low-opportunity','strength','suggestion','note','info']);
+
+function renderFilters() {
+  const counts = {};
+  DATA.items.forEach(i => { counts[i.severity] = (counts[i.severity]||0) + 1; });
+  const order = ['critical','high','medium','low','high-opportunity','medium-opportunity','low-opportunity','strength','suggestion','note'];
+  let html = '';
+  order.forEach(s => {
+    if (!counts[s]) return;
+    const active = activeFilters.has(s) ? 'active' : '';
+    html += `<span class="badge badge-${s} ${active}" data-sev="${s}" onclick="toggleFilter('${s}')">${s.replace('-',' ')} ${counts[s]}</span>`;
+  });
+  document.getElementById('filters').innerHTML = html;
+}
+
+function toggleFilter(sev) {
+  if (activeFilters.has(sev)) activeFilters.delete(sev); else activeFilters.add(sev);
+  renderFilters();
+  renderSections();
+}
+
+// --- Sections ---
+function renderSections() {
+  const groups = {};
+  const sectionOrder = ['structural','structure-capabilities','prompt-craft','cohesion','efficiency','quality','scripts','script-opportunities','creative'];
+
+  DATA.items.forEach(i => {
+    if (!activeFilters.has(i.severity)) return;
+    const s = i.section;
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(i);
+  });
+
+  // Truly broken (always first, always open)
+  const broken = DATA.items.filter(i => i.type === 'issue' && (i.severity === 'critical' || i.severity === 'high'));
+  const brokenIds = new Set(broken.map(i => i.id));
+  // Strengths
+  const strengths = DATA.items.filter(i => i.type === 'strength' && activeFilters.has(i.severity));
+
+  let html = '';
+
+  if (broken.length) {
+    html += renderSection('truly-broken', `Truly Broken / Missing (${broken.length})`, broken, true);
+  }
+  if (strengths.length) {
+    html += renderSection('strengths', `Strengths (${strengths.length})`, strengths, false);
+  }
+
+  sectionOrder.forEach(sec => {
+    // Exclude strengths (shown above) and items already in Truly Broken
+    const items = (groups[sec] || []).filter(i => i.type !== 'strength' && !brokenIds.has(i.id));
+    if (!items.length) return;
+    const label = DATA.section_labels[sec] || sec;
+    html += renderSection(sec, `${label} (${items.length})`, items, false);
+  });
+
+  // User journeys
+  if (DATA.journeys.length) {
+    html += renderJourneysSection();
+  }
+
+  // Assessments
+  if (Object.keys(DATA.assessments).length) {
+    html += renderAssessmentsSection();
+  }
+
+  document.getElementById('sections').innerHTML = html;
+}
+
+function renderSection(id, label, items, startOpen) {
+  const openCls = startOpen ? 'open' : '';
+  let html = `<div class="section"><div class="section-header ${openCls}" onclick="toggleSection(this)">`;
+  html += `<span class="arrow">\u25B6</span><span class="label">${label}</span>`;
+  html += `</div><div class="section-body ${openCls}">`;
+  items.forEach(i => { html += renderItem(i); });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderItem(item) {
+  const isStrength = item.type === 'strength';
+  const chk = item.selectable ? `<input type="checkbox" class="item-check" data-id="${item.id}" ${selected.has(item.id)?'checked':''} onchange="toggleSelect('${item.id}', this.checked)">` : '';
+  const sev = `<span class="badge badge-${item.severity}">${item.severity.replace('-',' ')}</span>`;
+  const file = item.file ? `<span class="item-file">${esc(item.file)}${item.line ? ':'+item.line : ''}</span>` : '';
+  const desc = item.description && item.description !== item.title ? `<div class="item-desc">${esc(item.description)}</div>` : '';
+  // Suppress action/impact for strengths — "N/A" is noise
+  const actionText = item.action && !isStrength && item.action !== 'N/A' ? item.action : '';
+  const action = actionText ? `<div class="item-action"><strong>${item.action_type === 'fix' ? 'Fix' : item.action_type === 'create-script' ? 'Script' : 'Suggestion'}:</strong> ${esc(actionText)}</div>` : '';
+  const impactText = item.impact && !isStrength && item.impact !== 'N/A' ? item.impact : '';
+  const impact = impactText ? `<div class="item-impact">Impact: ${esc(impactText)}</div>` : '';
+  const copyBtn = item.selectable ? `<button class="copy-btn" onclick="copySinglePrompt('${item.id}')" title="Copy prompt for this item">\u2398</button>` : '';
+
+  return `<div class="item">${chk}<div class="item-body">${sev} ${file}<div class="item-title">${esc(item.title)}</div>${desc}${action}${impact}</div><div class="item-actions">${copyBtn}</div></div>`;
+}
+
+function renderJourneysSection() {
+  let html = `<div class="section"><div class="section-header" onclick="toggleSection(this)">`;
+  html += `<span class="arrow">\u25B6</span><span class="label">User Journeys (${DATA.journeys.length})</span>`;
+  html += `</div><div class="section-body">`;
+  DATA.journeys.forEach(j => {
+    html += `<div class="journey"><h4>${esc(j.archetype)}</h4>`;
+    html += `<p>${esc(j.journey_summary)}</p>`;
+    if (j.friction_points && j.friction_points.length) {
+      html += `<ul class="friction">`;
+      j.friction_points.forEach(fp => { html += `<li>${esc(fp)}</li>`; });
+      html += `</ul>`;
+    }
+    if (j.bright_spots && j.bright_spots.length) {
+      html += `<ul class="bright">`;
+      j.bright_spots.forEach(bs => { html += `<li>${esc(bs)}</li>`; });
+      html += `</ul>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderAssessmentsSection() {
+  let html = `<div class="section"><div class="section-header" onclick="toggleSection(this)">`;
+  html += `<span class="arrow">\u25B6</span><span class="label">Assessments & Analysis</span>`;
+  html += `</div><div class="section-body">`;
+
+  const ca = DATA.assessments.cohesion_analysis;
+  if (ca) {
+    html += `<div class="assessment"><h4>Cohesion Analysis</h4><table><tr><th>Dimension</th><th>Score</th><th>Notes</th></tr>`;
+    Object.entries(ca).forEach(([dim, val]) => {
+      if (typeof val === 'object' && val.score) {
+        html += `<tr><td>${esc(dim.replace(/_/g, ' '))}</td><td>${esc(val.score)}</td><td>${esc(val.notes || '')}</td></tr>`;
+      }
+    });
+    html += `</table></div>`;
+  }
+
+  const aa = DATA.assessments.autonomous_assessment;
+  if (aa) {
+    html += `<div class="assessment"><h4>Autonomous Readiness</h4><table>`;
+    html += `<tr><td>Overall Potential</td><td>${esc(aa.potential||aa.overall_potential||'')}</td></tr>`;
+    html += `<tr><td>HITL Points</td><td>${aa.hitl_points||aa.hitl_interaction_points||0}</td></tr>`;
+    html += `<tr><td>Auto-Resolvable</td><td>${aa.auto_resolvable||0}</td></tr>`;
+    html += `<tr><td>Needs Input</td><td>${aa.needs_input||0}</td></tr>`;
+    if (aa.notes) html += `<tr><td>Notes</td><td>${esc(aa.notes)}</td></tr>`;
+    html += `</table></div>`;
+  }
+
+  const ti = DATA.assessments.top_insights;
+  if (ti && ti.length) {
+    html += `<div class="assessment"><h4>Top Insights</h4>`;
+    ti.forEach(t => {
+      const tiTitle = t.title || t.insight || '';
+      const tiDetail = t.detail || t.why_it_matters || '';
+      const tiAction = t.action || t.suggestion || '';
+      html += `<div style="margin:0.5rem 0"><strong>${esc(tiTitle)}</strong>`;
+      if (tiDetail) html += `<br><em>Context:</em> ${esc(tiDetail)}`;
+      if (tiAction) html += `<br><em>Suggestion:</em> ${esc(tiAction)}`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
+// --- Interactions ---
+function toggleSection(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+
+function toggleSelect(id, checked) {
+  if (checked) selected.add(id); else selected.delete(id);
+  document.getElementById('sel-count').textContent = selected.size;
+  document.getElementById('footer').classList.toggle('hidden', selected.size === 0);
+}
+
+// --- Prompt Generation ---
+function itemById(id) { return DATA.items.find(i => i.id === id); }
+
+function buildPromptForItem(item) {
+  let p = '';
+  const sev = item.severity.replace('-', ' ').toUpperCase();
+  const loc = item.file ? `${item.file}${item.line ? ':'+item.line : ''}` : '';
+  p += `**[${sev}] ${item.title}**\n`;
+  if (loc) p += `- File: ${loc}\n`;
+  if (item.description && item.description !== item.title) p += `- Context: ${item.description}\n`;
+  if (item.action) {
+    const label = item.action_type === 'fix' ? 'Fix' : item.action_type === 'create-script' ? 'Create script' : 'Suggestion';
+    p += `- ${label}: ${item.action}\n`;
+  }
+  if (item.impact) p += `- Impact: ${item.impact}\n`;
+  return p;
+}
+
+function buildPrompt(ids) {
+  const items = ids.map(itemById).filter(Boolean);
+  const fixes = items.filter(i => i.action_type === 'fix');
+  const scripts = items.filter(i => i.action_type === 'create-script');
+  const enhancements = items.filter(i => i.action_type === 'enhance' || i.action_type === 'refactor');
+
+  let prompt = `## Task: Quality Improvements for ${DATA.meta.skill_name}\nSkill path: ${DATA.meta.skill_path}\n\n`;
+
+  if (fixes.length) {
+    prompt += `### Fix These Issues (${fixes.length})\n\n`;
+    fixes.forEach((item, i) => { prompt += `${i+1}. ${buildPromptForItem(item)}\n`; });
+  }
+  if (scripts.length) {
+    prompt += `### Create These Scripts (${scripts.length})\n\n`;
+    scripts.forEach((item, i) => { prompt += `${i+1}. ${buildPromptForItem(item)}\n`; });
+  }
+  if (enhancements.length) {
+    prompt += `### Implement These Enhancements (${enhancements.length})\n\n`;
+    enhancements.forEach((item, i) => { prompt += `${i+1}. ${buildPromptForItem(item)}\n`; });
+  }
+  return prompt.trim();
+}
+
+function copySinglePrompt(id) {
+  const item = itemById(id);
+  if (!item) return;
+  let prompt = `## Task: Quality Fix for ${DATA.meta.skill_name}\nSkill path: ${DATA.meta.skill_path}\n\n`;
+  prompt += buildPromptForItem(item);
+  navigator.clipboard.writeText(prompt).then(() => {
+    const btn = document.querySelector(`[onclick="copySinglePrompt('${id}')"]`);
+    if (btn) { btn.classList.add('copied'); btn.textContent = '\u2713'; setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '\u2398'; }, 1500); }
+  });
+}
+
+function showBatchPrompt() {
+  const prompt = buildPrompt([...selected]);
+  document.getElementById('modal-content').textContent = prompt;
+  document.getElementById('modal').classList.add('visible');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('visible'); }
+
+function copyModal() {
+  const text = document.getElementById('modal-content').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.modal-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 1500);
+  });
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>

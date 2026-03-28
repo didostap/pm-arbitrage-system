@@ -215,7 +215,41 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
     <check if="Senior Developer Review section does NOT exist">
       <action>Set review_continuation = false</action>
       <action>Set {{pending_review_items}} = empty</action>
+    </check>
 
+    <!-- QA Verification detection (same pattern as code review) -->
+    <action>Check if "QA Verification (AI)" section exists in the story file</action>
+    <action>Check if "QA Follow-ups (AI)" subsection exists under Tasks/Subtasks</action>
+
+    <check if="QA Verification section exists">
+      <action>Set qa_continuation = true</action>
+      <action>Extract from "QA Verification (AI)" section:
+        - QA outcome (Fail/Pass with Warnings)
+        - Verification date
+        - Report file path
+        - Total failed ACs with checkboxes (count checked vs unchecked)
+        - Severity breakdown (High/Med/Low counts)
+      </action>
+      <action>Count unchecked [ ] QA follow-up tasks in "QA Follow-ups (AI)" subsection</action>
+      <action>Store list of unchecked QA items as {{pending_qa_items}}</action>
+
+      <output>🧪 **Resuming Story After QA Verification** ({{qa_date}})
+
+        **QA Outcome:** {{qa_outcome}}
+        **Report:** {{qa_report_path}}
+        **Failed ACs:** {{unchecked_qa_count}} remaining to fix
+        **Priorities:** {{high_count}} High, {{med_count}} Medium, {{low_count}} Low
+
+        **Strategy:** Will prioritize QA follow-up tasks (marked [AI-QA]) before continuing with regular tasks.
+      </output>
+    </check>
+
+    <check if="QA Verification section does NOT exist">
+      <action>Set qa_continuation = false</action>
+      <action>Set {{pending_qa_items}} = empty</action>
+    </check>
+
+    <check if="review_continuation == false AND qa_continuation == false">
       <output>🚀 **Starting Fresh Implementation**
 
         Story: {{story_key}}
@@ -332,6 +366,21 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
       <action>Add to Dev Agent Record → Completion Notes: "✅ Resolved review finding [{{severity}}]: {{description}}"</action>
     </check>
 
+    <!-- QA FOLLOW-UP HANDLING (same pattern as review follow-ups) -->
+    <check if="task is QA follow-up (has [AI-QA] prefix)">
+      <action>Extract QA finding details (severity, AC reference, description)</action>
+      <action>Add to resolution tracking list: {{resolved_qa_items}}</action>
+
+      <!-- Mark task in QA Follow-ups section -->
+      <action>Mark task checkbox [x] in "Tasks/Subtasks → QA Follow-ups (AI)" section</action>
+
+      <!-- CRITICAL: Also mark corresponding failed AC in QA Verification section -->
+      <action>Find matching failed AC in "QA Verification (AI) → Failed ACs" section by matching AC description</action>
+      <action>Mark that failed AC checkbox [x] as resolved</action>
+
+      <action>Add to Dev Agent Record → Completion Notes: "✅ Fixed QA finding [{{severity}}]: {{description}}"</action>
+    </check>
+
     <!-- ONLY MARK COMPLETE IF ALL VALIDATION PASS -->
     <check if="ALL validation gates pass AND tests ACTUALLY exist and pass">
       <action>ONLY THEN mark the task (and subtasks) checkbox with [x]</action>
@@ -347,6 +396,11 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
     <check if="review_continuation == true and {{resolved_review_items}} is not empty">
       <action>Count total resolved review items in this session</action>
       <action>Add Change Log entry: "Addressed code review findings - {{resolved_count}} items resolved (Date: {{date}})"</action>
+    </check>
+
+    <check if="qa_continuation == true and {{resolved_qa_items}} is not empty">
+      <action>Count total resolved QA items in this session</action>
+      <action>Add Change Log entry: "Fixed QA verification findings - {{resolved_count}} items resolved (Date: {{date}})"</action>
     </check>
 
     <action>Save the story file</action>
@@ -438,9 +492,11 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
       - Ensure deployment readiness if applicable
       - Run `code-review` workflow for peer review
       - Optional: If Test Architect module installed, run `/bmad:tea:automate` to expand guardrail tests
+      - Optional: After code review passes, run QA verification (`VR` via TEA agent) against the running app
     </action>
 
-    <output>💡 **Tip:** For best results, run `code-review` using a **different** LLM than the one that implemented this story.</output>
+    <output>💡 **Tip:** For best results, run `code-review` using a **different** LLM than the one that implemented this story.
+    After code review passes, run QA verification (TEA agent → `VR`) against the running app for final acceptance testing.</output>
     <check if="{sprint_status} file exists">
       <action>Suggest checking {sprint_status} to see project progress</action>
     </check>
