@@ -1,5 +1,5 @@
 # generated: 2026-03-26T00:00:00Z
-# last_updated: 2026-04-04T00:00:00Z
+# last_updated: 2026-04-04T22:00:00Z
 # project: pm-arbitrage-system
 # project_key: NOKEY
 # tracking_system: file-system
@@ -279,10 +279,10 @@ development_status:
   # TimescaleDB extension provides hypertable partitioning, 90%+ compression, chunk-local indexes
   # Prisma compatible (hypertable creation via manual migration SQL, time_bucket via $queryRaw)
   # Prerequisites: Epic 10.9 complete, full pg_dump backup before migration
-  epic-10-95: backlog
-  10-95-1-timescaledb-extension-installation-proof-of-concept: backlog # Install extension, Docker image swap (postgres:16 → timescale/timescaledb-ha:pg16), convert historical_trades (5.9 GB) as validation, Prisma composite PK, drop unused indexes
-  10-95-2-hypertable-conversion-prices-depths: backlog # Convert historical_prices (180 GB) + historical_depths (151 GB), maintenance window required (2-4h), composite PKs, drop bloated indexes (76 GB)
-  10-95-3-compression-policies-retention-observability: backlog # Enable compression (segmentby platform/contract/source), 7-day policy, manual compress old chunks, retention policy (2yr prices, 1yr trades, 6mo depths — configurable via EngineConfig, non-negotiable defaults per 10.9 retro), dashboard storage stats section
+  epic-10-95: in-progress
+  10-95-1-timescaledb-extension-installation-proof-of-concept: done # Completed 2026-04-04. Install extension, Docker image swap (postgres:16 → timescale/timescaledb-ha:pg16.13-ts2.26.1-oss), convert historical_trades (5.9 GB) as validation, Prisma composite PK, drop unused indexes. Code review completed 2026-04-04: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 28 raw findings triaged to 0 intent-gap + 0 bad-spec + 2 patch + 5 defer + 21 reject. Both patches fixed: P-1 pinned Docker image tag, P-2 added aggregate/groupBy integration tests. 5 deferred (pre-existing): migration transaction timeout risk for 10-95-2, CREATE EXTENSION superuser requirement, dropped covering index perf monitoring, nullable external_trade_id dedup bypass, CI integration test gap. 3600 tests pass.
+  10-95-2-hypertable-conversion-prices-depths: done # Completed 2026-04-04. Convert historical_prices (180 GB) + historical_depths (151 GB) to hypertables, composite PKs, drop 3 bloated indexes (76 GB). Code review completed 2026-04-04: 3-layer adversarial (Blind Hunter only — Edge Case Hunter + Acceptance Auditor rate-limited, Auditor run inline), 15 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 2 defer + 12 reject. 2 deferred (pre-existing): migrate_data preservation untestable in CI, lock_timeout=0 indefinite hang risk (spec-mandated for maintenance window). 3618 tests pass.
+  10-95-3-compression-policies-retention-observability: review # Enable compression (segmentby platform/contract/source), 7-day policy, manual compress old chunks, retention policy (2yr prices, 1yr trades, 6mo depths — configurable via EngineConfig, non-negotiable defaults per 10.9 retro), dashboard storage stats section
   10-95-4-backtest-engine-service-decomposition: backlog # Extract WalkForwardRoutingService + ChunkedDataLoadingService from BacktestEngineService (917 lines, 9 deps). Facade decomposition (10.8 playbook). Target: constructor ≤8 deps, facade <600 formatted lines. Added by 10.9 retro. Slippable to Epic 11 if correction buffer consumed.
   epic-10-95-retrospective: optional
 
