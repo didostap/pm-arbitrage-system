@@ -3313,10 +3313,11 @@ Decompose all identified God Objects into focused, single-responsibility service
 
 **Prerequisites:** Epic 10.7 must be complete before refactoring begins (don't interrupt active feature work).
 
-### Epic 10.95: TimescaleDB Migration & Time-Series Storage Optimization
-Migrate time-series tables to TimescaleDB hypertables with compression, reducing storage by ~90% (337 GB → <50 GB) and improving time-range query performance 10-50x, while maintaining full Prisma compatibility.
-**FRs covered:** None (infrastructure optimization)
+### Epic 10.95: TimescaleDB Migration, Time-Series Storage & Backtesting Quality
+Migrate time-series tables to TimescaleDB hypertables with compression, reducing storage by ~90% (337 GB → <50 GB) and improving time-range query performance 10-50x, while maintaining full Prisma compatibility. Additionally, address backtesting engine quality: performance optimization for monthly+ ranges, fix force-close statistics distortion, and add position detail view.
+**FRs covered:** None (infrastructure optimization + backtesting quality)
 **Course correction:** 2026-04-03 — database grew to 337 GB in ~3 months from 3 time-series tables (historical_prices 180 GB, historical_depths 151 GB, historical_trades 5.9 GB). 76 GB index bloat, cache hit rates below threshold. Projected 1.3 TB/year without intervention.
+**Course correction:** 2026-04-06 — post-TimescaleDB backtesting quality issues: monthly ranges still slow (per-chunk depth reloading, LRU cache undersized), force-close at simulation end distorts P&L statistics, no position detail view in dashboard.
 
 **Prerequisites:** Epic 10.9 complete. Full pg_dump backup before migration.
 
@@ -3449,12 +3450,536 @@ So that the codebase doesn't carry a 917-line God Object with 9 constructor depe
 **Dependencies:** Stories 10-95-1 through 10-95-3 complete (migration stable)
 **Blocks:** Clean entry into Epic 11
 
+### Story 10-95-5: Backtest Engine Performance Optimization for Extended Date Ranges (Added by Course Correction 2026-04-06)
+
+As an operator,
+I want monthly+ backtests to complete in reasonable time (minutes, not tens of minutes),
+So that I can run calibration sweeps over meaningful historical periods without waiting excessively.
+
+**Context:** Post-TimescaleDB migration, short-range backtests improved but monthly ranges remain slow. Three compounding bottlenecks: per-chunk depth re-loading (30 cycles for 30-day backtest), LRU cache undersized (2K entries vs ~4.4M unique keys), sequential per-position depth lookups falling back to N+1 `findFirst()`.
+
+**Acceptance Criteria:**
+
+1. **Given** a 30-day backtest with 50+ active pairs
+   **When** the backtest runs end-to-end
+   **Then** total wall-clock time is at least 3x faster than current baseline
+
+2. **Given** the depth data loader
+   **When** loading depths for a chunk
+   **Then** a single batch query fetches depths for all contracts (no per-contract `findFirst()` fallback)
+   **And** the batch query leverages TimescaleDB chunk exclusion via time-range predicates
+
+3. **Given** the depth caching strategy
+   **When** a backtest spans multiple chunks
+   **Then** depth cache is shared across chunk boundaries using a sliding window or range-based pre-load
+   **And** the cache size is dynamically bounded by available memory (configurable max, default 512MB RSS budget)
+
+4. **Given** a time step with N open positions
+   **When** `evaluateExits()` needs depth data
+   **Then** all N depth lookups are resolved from pre-loaded cache (zero individual DB queries during simulation loop)
+   **And** cache misses are logged at WARN level
+
+5. **Given** existing backtest tests
+   **When** the optimization is applied
+   **Then** all existing tests pass without modification and results are identical to pre-optimization output
+
+6. **Given** the backtest engine emits progress events
+   **When** a chunk completes
+   **Then** the event includes `depthCacheHitRate` and `depthQueriesExecuted`
+
+**Dependencies:** Benefits from 10-95-4 (engine decomposition creates `ChunkedDataLoadingService`)
+
+### Story 10-95-6: Replace Simulation-End Force-Close with Open Position Reporting (Added by Course Correction 2026-04-06)
+
+As an operator,
+I want backtests to leave open positions unclosed at simulation end and instead report blocked capital separately,
+So that backtest statistics accurately reflect realized trading performance without artificial losses from force-closed positions.
+
+**Context:** `closeRemainingPositions()` force-closes all open positions at simulation end with `exitReason: 'SIMULATION_END'` and `exitEdge: 0`, inflating loss count and depressing total P&L, profit factor, win rate, and Sharpe ratio. In live trading these positions would remain open.
+
+**Acceptance Criteria:**
+
+1. **Given** a backtest completes with N open positions remaining
+   **When** the simulation ends
+   **Then** those positions are **not** closed
+
+2. **Given** open positions exist at simulation end
+   **When** results are persisted
+   **Then** each open position is stored with null exit fields + calculated `unrealizedPnl`
+   **And** `BacktestRun` stores `openPositionCount`, `blockedCapitalUsd`, `unrealizedPnlUsd`
+
+3. **Given** aggregate metrics are calculated
+   **When** open positions exist
+   **Then** all metrics reflect **only naturally closed positions**
+
+4. **Given** the backtest detail page
+   **When** the run has open positions
+   **Then** a "Blocked Capital" section shows: open position count, total capital blocked, estimated unrealized P&L, percentage of initial capital blocked
+   **And** the Positions tab distinguishes open vs closed positions
+
+**Dependencies:** Independent of 10-95-5. Prisma migration required (new fields + nullable exitReason).
+
+### Story 10-95-7: Backtest Position Detail View (Added by Course Correction 2026-04-06)
+
+As an operator,
+I want to click on a backtest position row and see a detailed view of that position,
+So that I can understand the rationale, P&L breakdown, and conditions for each individual backtest trade.
+
+**Context:** Live trading has `PositionDetailPage` (613 lines, 8 sections) at `/positions/:id`. Backtest positions table shows 13 columns inline with no click-through. Operators need the same drill-down capability.
+
+**Acceptance Criteria:**
+
+1. **Given** the backtest Positions tab
+   **When** the operator clicks a position row
+   **Then** a detail view opens for that position
+
+2. **Given** a closed backtest position detail view
+   **When** the view renders
+   **Then** it displays: Entry section (prices, size, edge, timestamp, contract IDs), Exit section (reason, prices, edge, duration), P&L Breakdown (per-leg P&L, fees, net realized), Sides & Strategy description
+
+3. **Given** an open backtest position detail view (from 10-95-6)
+   **When** the view renders
+   **Then** Exit section shows "Position still open at simulation end" with unrealized P&L and blocked capital
+
+4. **Given** the backend API
+   **When** `GET /backtesting/runs/:runId/positions/:positionId` is called
+   **Then** it returns the full position record, 404 if position doesn't belong to run
+
+5. **Given** the detail view component
+   **When** implemented
+   **Then** it reuses existing UI primitives from live `PositionDetailPage` where applicable
+   **And** sections not applicable to backtesting are omitted (Auto-Unwind, Exit Criteria, Execution Info, Order History, Audit Trail)
+
+**Dependencies:** Depends on 10-95-6 (open position fields and UI patterns)
+
+### Story 10-95-8: Backtest Zero-Price Filtering & Exit Fee Accounting (Added by Course Correction 2026-04-08)
+
+As an operator,
+I want the backtest engine to reject zero-price historical candles and deduct realistic exit fees from realized P&L,
+So that backtest results reflect actual tradeable opportunities and accurate profit/loss accounting.
+
+**Context:** Backtest run `fd98b78e` (Mar 1-5, $10K bankroll) lost $2,929.70 due to: (1) 95.2% of Kalshi historical price rows being zero-volume candles treated as real prices, creating phantom edges averaging 67.3%, and (2) missing exit fee deduction in `backtest-portfolio.service.ts:closePosition()`.
+
+**Acceptance Criteria:**
+
+1. Data loader SQL (`loadAlignedPricesForChunk`) excludes rows where Kalshi or Polymarket `close = 0`
+2. TypeScript defense-in-depth guard rejects zero-price rows after Decimal conversion; excluded rows counted in chunk progress events
+3. Backtest report `dataQuality` section includes `zeroRowsExcluded`, `zeroRowsExcludedPct`, `perPlatformExclusion`
+4. `closePosition()` computes exit fees using `FinancialMath.calculateTakerFeeRate()` with platform fee schedules; `realizedPnl = legPnl - fees`; `fees` field populated (not null)
+5. Capital tracking accounts for fee-deducted PnL
+6. Configurable maximum edge threshold (default 15%) rejects phantom signals
+7. Dashboard Summary tab shows "Data Quality" card with exclusion stats and >20% warning banner
+8. All existing tests pass; new tests cover zero-price filtering, fee calculation, edge cap, data quality metrics
+
+**Dependencies:** None (10-95-1 through 10-95-7 all complete).
+
+### Story 10-95-9: Backtest Exit Logic Fix & Full-Cost PnL Accounting (Added by Course Correction 2026-04-10)
+
+As an operator,
+I want the backtest PROFIT_CAPTURE exit to verify actual position profitability before triggering, and realized P&L to include all trading costs (entry fees + gas),
+So that backtest exit classifications are accurate and P&L reflects true economics.
+
+**Context:** Backtest run `e90b5698` (Mar 1-5, $10K bankroll) lost $937.90 after Story 10-95-8 fixed zero-price contamination and added exit fees. Two remaining defects: (1) PROFIT_CAPTURE exit condition (`exit-evaluator.service.ts:104`) fires on edge convergence regardless of PnL direction — ALL 39 PROFIT_CAPTURE exits were losers (avg -$9.23, 84.6% had adverse Kalshi price movement). (2) Entry fees (~$4.5-5.5/position) and gas ($0.50/position) omitted from `realizedPnl` in `backtest-portfolio.service.ts:240`.
+
+**Acceptance Criteria:**
+
+1. PROFIT_CAPTURE exit requires `capturedRatio >= exitProfitCapturePct` AND mark-to-market PnL > 0 (using `calculateLegPnl()` for both legs). If `mtmPnl <= 0`, condition returns false (falls through to other triggers).
+2. `ExitEvaluationParams` includes position entry prices, current prices, sides, and size for PnL calculation. Uses existing `calculateLegPnl` from `common/utils/financial-math.ts`.
+3. `openPosition()` computes and stores entry fees (`entryFees: Decimal`) and gas cost (`gasCost: Decimal`) on `SimulatedPosition` using `FinancialMath.calculateTakerFeeRate()` with platform fee schedules.
+4. `closePosition()` computes `realizedPnl = kalshiPnl + polyPnl - exitFees - entryFees - gasCost`. `fees` field = `entryFees + exitFees`. Capital tracking uses fully-net PnL.
+5. `edgeThresholdPct` default raised from 0.008 to 0.03. Config validation rejects values below 0.02. Existing `maxEdgeThresholdPct` (15%) remains.
+6. New `STOP_LOSS` exit condition: triggers when mark-to-market PnL drops below `-exitStopLossPct * positionSizeUsd` (default 15%). Priority between INSUFFICIENT_DEPTH (2) and PROFIT_CAPTURE (3). New `BacktestExitReason` enum value added via Prisma migration.
+7. `calculateUnrealizedPnl()` includes entry fees + gas: `unrealizedPnl = mtmPnl - estimatedExitFees - entryFees - gasCost`.
+8. All existing tests pass. New tests: PROFIT_CAPTURE positive/negative PnL paths, entry fee storage, full-cost PnL, STOP_LOSS trigger/non-trigger, edge threshold validation, unrealized PnL cost components.
+
+**Dependencies:** None (10-95-1 through 10-95-8 all complete).
+
+### Story 10-95-10: Backtest Side Selection Fix & Depth Exit Improvement (Added by Course Correction 2026-04-11)
+
+As an operator,
+I want the backtest engine to correctly determine arbitrage direction per opportunity and not force-close positions on depth cache misses,
+So that backtest results reflect actual arbitrage profitability rather than systematic wrong-direction trading and spurious exits.
+
+**Context:** Backtest run `09b344c7` (Mar 1-5, $10K bankroll, post-10-95-9) lost $1,078.97 with 8.1% win rate. Root cause investigation revealed:
+
+1. **Side selection is a no-op:** `calculateBestEdge()` in `edge-calculation.utils.ts:9-27` computes `edgeA = grossEdge(kalshi, 1-poly)` and `edgeB = grossEdge(poly, 1-kalshi)`. Since `grossEdge(a,b) = b - a`, both resolve to `1 - kalshi - poly` (addition is commutative). `edgeA.gt(edgeB)` is never true, so `buySide` always defaults to `'polymarket'`. Result: ALL 141 positions are SELL Kalshi / BUY Polymarket regardless of which platform has the higher price. 52 positions where Poly > Kalshi entered anti-arbitrage (0% win rate, -$587.54).
+
+2. **INSUFFICIENT_DEPTH exits on cache misses:** `hasDepth = kalshiDepth !== null && polyDepth !== null` at `backtest-engine.service.ts:525` force-closes positions whenever depth data is missing from the cache for either platform — regardless of whether liquidity actually exists. 87/111 closed positions (78%) exit this way, at -$757.75 total.
+
+The prior course correction (2026-04-10) incorrectly dismissed the unidirectional bias: "Not a bug. If Kalshi consistently prices higher for the same events, SELL K / BUY P is the correct arb direction." DB evidence proves otherwise: 47% of positions have Poly > Kalshi, and 100% of those are losers.
+
+**Acceptance Criteria:**
+
+1. **Given** `calculateBestEdge()` in `edge-calculation.utils.ts`
+   **When** `kalshiClose > polymarketClose`
+   **Then** `buySide = 'polymarket'` (buy the cheaper Poly, sell the expensive Kalshi)
+   **And** `bestEdge` reflects the net edge for this direction
+
+2. **Given** `calculateBestEdge()` in `edge-calculation.utils.ts`
+   **When** `polymarketClose > kalshiClose`
+   **Then** `buySide = 'kalshi'` (buy the cheaper Kalshi, sell the expensive Poly)
+   **And** `bestEdge` reflects the net edge for this direction
+
+3. **Given** `calculateBestEdge()` in `edge-calculation.utils.ts`
+   **When** `kalshiClose == polymarketClose`
+   **Then** `bestEdge` is zero or negative (no arbitrage exists when prices are equal after fees)
+
+4. **Given** the position creation in `backtest-engine.service.ts:647-661`
+   **When** a position is opened
+   **Then** `kalshiSide` and `polymarketSide` correctly reflect the `buySide` determination
+   **And** positions where Kalshi is cheaper have `kalshiSide = 'BUY'`
+   **And** positions where Poly is cheaper have `polymarketSide = 'BUY'`
+
+5. **Given** the exit evaluation loop in `backtest-engine.service.ts:490-564`
+   **When** depth data is missing from the cache for one or both platforms (`findNearestDepthFromCache` returns null)
+   **Then** the position is NOT force-closed due to cache miss
+   **And** exit evaluation proceeds using available price data (kalshiClose/polymarketClose from the time step)
+   **And** `hasDepth` is set to `false` only when depth data IS present but shows insufficient liquidity for the position size
+
+6. **Given** the `calculateCurrentEdge()` utility in `edge-calculation.utils.ts`
+   **When** computing the current edge for an open position
+   **Then** it uses the position's recorded `buySide` (not a re-computed buySide) to ensure edge direction consistency between entry and exit evaluation
+
+7. **Given** the edge calculation regression test suite
+   **When** `calculateBestEdge()` is called with kalshi=0.60, poly=0.40
+   **Then** `buySide = 'polymarket'` and `bestEdge > 0`
+   **When** called with kalshi=0.35, poly=0.55
+   **Then** `buySide = 'kalshi'` and `bestEdge > 0`
+   **When** called with kalshi=0.50, poly=0.50
+   **Then** `bestEdge <= 0` (no arb after fees)
+
+8. **Given** a re-run of the Mar 1-5 backtest with the same config as run `09b344c7`
+   **When** the backtest completes
+   **Then** positions show BOTH directions (SELL K / BUY P and BUY K / SELL P) in the results
+   **And** INSUFFICIENT_DEPTH exits represent < 30% of closed positions (down from 78%)
+   **And** win rate improves significantly from the 8.1% baseline
+
+**Tasks:**
+
+1. **Fix `calculateBestEdge()` side determination** — Replace the symmetric edge comparison with a direct price comparison: if `kalshiClose > polymarketClose`, `buySide = 'polymarket'`; otherwise `buySide = 'kalshi'`. Compute `bestEdge` using the gross edge for the selected direction. Ensure the gross edge is positive for valid arb opportunities.
+
+2. **Fix depth exit logic** — In `backtest-engine.service.ts`, change `hasDepth` semantics: `null` depth (cache miss) should NOT trigger INSUFFICIENT_DEPTH. Only trigger when depth data exists but shows insufficient liquidity. When depth is null, proceed with exit evaluation using mid-price (kalshiClose/polymarketClose already available).
+
+3. **Add `buySide` to `SimulatedPosition`** — Store the entry-time `buySide` on the position so that `calculateCurrentEdge()` for exit evaluation uses the same direction as entry. Add field to simulation types.
+
+4. **Update `calculateCurrentEdge()` for open positions** — Accept an optional `buySide` parameter. When evaluating exits for open positions, pass the stored `buySide` to ensure directional consistency. Current implementation re-computes buySide each tick, which with the fix could flip direction mid-position.
+
+5. **Regression tests for side selection** — Add tests for `calculateBestEdge()` covering: kalshi > poly → buySide 'polymarket'; poly > kalshi → buySide 'kalshi'; equal prices → non-positive edge; extreme prices (0.02/0.95); symmetric prices around 0.50.
+
+6. **Regression tests for depth exit** — Add tests verifying: null depth (cache miss) does NOT trigger INSUFFICIENT_DEPTH; present-but-insufficient depth DOES trigger; exit evaluation proceeds normally on cache miss.
+
+7. **Update existing tests** — Fix any existing tests that implicitly depend on buySide always being 'polymarket' or hasDepth always being false on null.
+
+8. **Validation backtest** — Re-run Mar 1-5 with same config. Verify bidirectional positions, reduced INSUFFICIENT_DEPTH rate, improved win rate.
+
+**Technical Notes:**
+- The fix in `calculateBestEdge()` is surgical: replace the edge comparison with a price comparison. The gross edge calculation and net edge calculation are both correct — only the side determination is broken.
+- For depth exit: the current `findNearestDepthFromCache()` returns `null` for cache misses AND for genuinely empty order books. Consider distinguishing these cases (cache miss = no data point near the timestamp vs empty book = data point exists but no levels). Simplest approach: treat null as "no data available, proceed with price-only evaluation."
+- No Prisma migration needed. No new DB fields (buySide is stored on the in-memory `SimulatedPosition`, not persisted — the DB already has `kalshi_side`/`polymarket_side` columns which will now correctly vary).
+- This story addresses the prior course correction's incorrect dismissal of the direction bias. The evidence is unambiguous: 52 positions with Poly > Kalshi have 0% win rate.
+
+**Dependencies:** 10-95-9 complete (STOP_LOSS, PROFIT_CAPTURE PnL guard, full-cost accounting all in place).
+
+### Story 10-95-11: Backtest Edge Metric Realignment (Added by Course Correction 2026-04-12)
+
+As an operator,
+I want the backtest engine to use the same edge formula as the PRD and live detection engine (`|K-P|` price discrepancy instead of `1-K-P` overround gap),
+So that backtest entry/exit decisions predict actual profitability and results can be compared to live performance.
+
+**Context:** Backtest run `9bab5cf5` (Mar 1-5, $10K bankroll, post-10-95-10) lost -$3,406 on 436 positions (7.1% win rate). Root cause investigation revealed the backtest engine's `calculateBestEdge()` uses `1-K-P` (overround gap) while both the PRD (FR-AD-02 Edge Calculation Formula) and the live detection engine (`detection.service.ts:190-217`, fixed in March 3 SCP) use `|K-P|` (price discrepancy). These metrics differ by `|1-2*sellSidePrice|`, averaging 6-22 cents. 70% of positions (304/436) have the coded net edge exceeding the raw `|K-P|` gap, meaning the engine enters trades where maximum possible profit cannot cover predicted edge. Additionally, `calculateNetEdge()` uses complement prices (`1-P`) instead of actual trade prices for fee deductions, diverging from the PRD example formulas.
+
+**Acceptance Criteria:**
+
+1. **Given** `calculateBestEdge()` **when** computing gross edge **then** returns `max(K,P) - min(K,P)` (= `|K-P|`), matching `FinancialMath.calculateGrossEdge(buyPrice, sellPrice)` as used by the live detection engine.
+
+2. **Given** `calculateNetEdge()` **when** computing fee deductions **then** uses actual trade prices (`kalshiClose`, `polymarketClose`) instead of complement prices (`1-polymarketClose`, `1-kalshiClose`). Matches the PRD example: "Buy fee cost (Polymarket at 0.58): 0.58 x 0.02 = 0.0116; Sell fee cost (Kalshi at 0.62): 0.62 x 0.0266 = 0.01649."
+
+3. **Given** `calculateCurrentEdge()` **when** evaluating open position edge **then** uses the same `|K-P|` metric with actual prices, preserving the `entryBuySide` parameter (from 10-95-10).
+
+4. **Given** `edgeThresholdPct` configuration **then** default raised from 0.03 to 0.05 and minimum floor recalibrated to ensure threshold exceeds roundtrip fees per unit (~5% for $200 positions with ~$10 roundtrip fees).
+
+5. **Given** `maxEdgeThresholdPct` configuration **then** recalibrated for the `|K-P|` metric: raised from 0.15 to 0.40 (price gaps can legitimately exceed 15% when platforms genuinely disagree).
+
+6. **Given** existing tests **when** all run **then** all pass with updated assertions for new formula. Regression tests added comparing backtest edge output to PRD examples.
+
+**Tasks:**
+
+1. **Fix `calculateBestEdge()` gross edge** — Change from `1-K-P` to `max(K,P) - min(K,P)`. Use `FinancialMath.calculateGrossEdge(buyPrice, sellPrice)` directly (buyPrice = min, sellPrice = max). Side determination (price comparison from 10-95-10) is already correct — do not change it.
+
+2. **Fix `calculateNetEdge()` sell price** — Change `sellPrice` from `1-polymarketClose` / `1-kalshiClose` to actual `polymarketClose` / `kalshiClose`. Both fee schedules should compute fees at the actual trade price.
+
+3. **Fix `calculateCurrentEdge()` gross edge** — Change from `1-K-P` to `max(K,P) - min(K,P)`, maintaining the `entryBuySide` parameter for directional consistency.
+
+4. **Recalibrate thresholds** — Update `edgeThresholdPct` default (0.03 → 0.05), min (0.02 → 0.04). Update `maxEdgeThresholdPct` default (0.15 → 0.40).
+
+5. **Update edge-calculation.utils.spec.ts** — All edge value assertions must change. Add PRD example as explicit regression test: K=0.62, P=0.58 → grossEdge=0.04, buySide='polymarket'.
+
+6. **Update fixture files** — Any with `edgeThresholdPct` below 0.04 must be raised.
+
+7. **Validation backtest** — Re-run Mar 1-5 after fix. Verify edge values align with `|K-P|` metric.
+
+**Technical Notes:**
+- `FinancialMath.calculateGrossEdge()` and `FinancialMath.calculateNetEdge()` in `common/utils/financial-math.ts` are already correct — they use actual prices. Only the backtest wrapper functions in `edge-calculation.utils.ts` are wrong.
+- PnL accounting in `backtest-portfolio.service.ts` is independent of the edge metric and already correct (from 10-95-9).
+- Entry fee computation in `detectOpportunities()` already uses actual prices (correct from 10-95-9). Only the edge threshold check uses the wrong metric.
+
+**Dependencies:** 10-95-10 complete (side selection + buySide on position).
+
+### Story 10-95-12: Backtest Pair Re-Entry Cooldown (Added by Course Correction 2026-04-12)
+
+As an operator,
+I want the backtest engine to enforce a cooldown period before re-entering the same pair after a TIME_DECAY exit,
+So that the simulation doesn't churn through persistent non-converging edges, accumulating fees without new information.
+
+**Context:** In backtest run `9bab5cf5`, the top pair was entered 76 times at 1.24-hour intervals, losing $761. Top 3 pairs account for 42% of total loss ($1,421) from fee churning alone. After TIME_DECAY exit, the engine immediately re-enters because the persistent edge still exceeds the threshold. No cooldown or condition-change requirement exists.
+
+**Acceptance Criteria:**
+
+1. **Given** a position exits via TIME_DECAY **when** the same pair appears as a candidate in subsequent timesteps **then** the pair is skipped until `cooldownHours` have elapsed since the exit timestamp.
+
+2. **Given** a position exits via EDGE_EVAPORATION, PROFIT_CAPTURE, STOP_LOSS, or RESOLUTION_FORCE_CLOSE **when** the same pair reappears **then** no cooldown is enforced (these exits indicate changed market conditions).
+
+3. **Given** `cooldownHours` configuration **then** defaults to `exitTimeLimitHours` value. Configurable via `IBacktestConfig` with `@IsNumber() @Min(0) @IsOptional()` validation.
+
+4. **Given** cooldown tracking **then** tracked per-pair in simulation loop via `Map<pairId, lastTimeDecayExit>`. Cleanup: entries expire after cooldownHours, map cleared at simulation end. `/** Cleanup: entries expire after cooldownHours, .clear() on simulation end */`
+
+5. **Given** headless simulations (walk-forward, sensitivity) **then** cooldown state is independent per run (scoped by `tempRunId`).
+
+6. **Given** existing tests **when** all run **then** all pass. New tests: cooldown blocks re-entry within period, allows after expiry, does not apply to non-TIME_DECAY exits, map cleanup works.
+
+**Tasks:**
+
+1. **Add `cooldownHours` to config** — `IBacktestConfig`, `BacktestConfigDto` with `@IsNumber() @Min(0) @IsOptional()` default = `exitTimeLimitHours`.
+
+2. **Add cooldown map to simulation loop** — In `runSimulationLoop()`, initialize `Map<string, Date>` for cooldown tracking. On TIME_DECAY close, record exit timestamp per pair. In `detectOpportunities()`, skip pairs within cooldown window.
+
+3. **Non-TIME_DECAY exits bypass cooldown** — Only record cooldown on TIME_DECAY. Other exit reasons indicate condition change.
+
+4. **Cooldown tests** — Verify: blocks re-entry within period; allows after expiry; does not apply to EDGE_EVAPORATION/PROFIT_CAPTURE/STOP_LOSS exits; map cleanup at simulation end; headless isolation.
+
+5. **Update config validation tests** — Add `cooldownHours` validation tests.
+
+**Technical Notes:**
+- The cooldown map is per-simulation-run, not per-pair-globally. Each `runSimulationLoop()` invocation gets its own map.
+- Collection lifecycle: `/** Cleanup: .delete() on cooldown expiry check, .clear() at end of runSimulationLoop */`
+- No Prisma changes. No new exit reasons. This is purely an entry filter.
+
+**Dependencies:** 10-95-11 complete (correct edge metric ensures cooldown operates on meaningful entry decisions).
+
+### Story 10-95-13: Backtest Entry Liquidity Filter & Stop-Loss Recalibration (Added by Course Correction 2026-04-12)
+
+As an operator,
+I want the backtest engine to reject entry into positions where one platform shows stale or illiquid pricing, and I want a tighter stop-loss default,
+So that the simulation avoids illusory edges from liquidity asymmetry and cuts losses faster on diverging positions.
+
+**Context:** In backtest run `2d2f84ac`, 8 STOP_LOSS exits (-$736) and 106 diverged TIME_DECAY exits (-$1,338) share the same root cause: one platform's price is stale/flat while the other moves dramatically. All 8 stop-loss pairs verified against `contract_matches` — descriptions and CLOB token IDs match correctly. These are NOT contract matching errors. The apparent "edge" is illusory because one platform has no real market activity (e.g., Polymarket at $0.002 with zero price movement). 62 of 106 diverged TIME_DECAY positions show identical one-sided flat-price movement (51 Polymarket flat, 11 Kalshi flat).
+
+**Acceptance Criteria:**
+
+1. **Given** a candidate entry opportunity **when** either platform's price is below `minEntryPricePct` (default 0.05) **then** the entry is skipped and a counter is incremented in the calibration report.
+
+2. **Given** a candidate entry opportunity **when** the absolute price gap between platforms (`|kalshiPrice - polymarketPrice|`) exceeds `maxEntryPriceGapPct` (default 0.25) **then** the entry is skipped and a counter is incremented.
+
+3. **Given** `exitStopLossPct` configuration **when** no explicit value is provided **then** the default is `0.15` (was `0.30`). `@Min(0.05) @Max(0.50)` validation range.
+
+4. **Given** filtered entries **when** the calibration report is generated **then** a new "Liquidity Filters" section shows: total candidates evaluated, entries rejected by min-price filter (with per-platform breakdown), entries rejected by price-gap filter, and the configured thresholds.
+
+5. **Given** existing tests **when** all run **then** all pass. New tests: min-price filter rejects below threshold, allows above; price-gap filter rejects above threshold, allows below; stop-loss triggers at 15% default; filter counters accumulate correctly in report; all three filters are configurable and independently disablable (min 0 disables).
+
+**Tasks:**
+
+1. **Add config parameters** — `minEntryPricePct` and `maxEntryPriceGapPct` to `IBacktestConfig` and `BacktestConfigDto` with `@IsNumber() @Min(0) @IsOptional()` validation. Update `exitStopLossPct` default from 0.30 to 0.15.
+
+2. **Add entry filtering in opportunity detection** — In `detectOpportunities()` (or equivalent entry evaluation), add pre-entry checks for min price and price gap. Skip and count filtered entries.
+
+3. **Accumulate filter metrics** — Track per-run counts of filtered entries by reason. Include in calibration report generation.
+
+4. **Tests** — Verify: min-price blocks entry below threshold; price-gap blocks entry above threshold; stop-loss triggers at new default; filters configurable; counters accumulate; existing tests pass.
+
+**Technical Notes:**
+- Entry filters are evaluated before edge calculation to avoid wasted compute.
+- Filter counters use the same `RunningAccumulators` pattern as existing metrics.
+- Collection lifecycle: counters are primitives (no Map/Set cleanup needed).
+
+**Dependencies:** 10-95-12 complete (all prior fixes in place).
+
+### Story 10-95-14: PROFIT_CAPTURE Fee-Aware P&L Guard (Added by Course Correction 2026-04-12)
+
+As an operator,
+I want the backtest PROFIT_CAPTURE exit to verify post-fee profitability before triggering,
+So that positions with small edge but large fees are not exited as "profit captures" when they would actually realize a loss.
+
+**Context:** In backtest run `2d2f84ac`, 81 of 413 PROFIT_CAPTURE exits (20%) realized a net loss despite the P&L guard at `exit-evaluator.service.ts:120-133` checking `mtmPnl > 0`. The guard uses raw `calculateLegPnl()` (price movement only), but `closePosition()` at `backtest-portfolio.service.ts:262-266` deducts entry fees, exit fees, and gas. When raw P&L is positive but smaller than total fees, the guard approves exit but the actual result is negative.
+
+Evidence:
+- Losing PROFIT_CAPTURE avg: entry_edge 4.1%, raw P&L ~$8.40, fees ~$9.80, realized -$1.99
+- Winning PROFIT_CAPTURE avg: entry_edge 8.8%, raw P&L ~$19.50, fees ~$7.46, realized +$12.06
+- Win rate by entry edge: <5% = 61%, 5-6% = 84%, 6-8% = 95%, 8%+ = 100%
+
+**Note:** Story 10-95-11 already raised the default `edgeThresholdPct` from 0.03 to 0.05, which prevents many low-edge entries. The fee-aware guard is still needed as defense-in-depth for positions that enter near the threshold.
+
+**Acceptance Criteria:**
+
+1. **Given** PROFIT_CAPTURE exit evaluation **when** `capturedRatio >= exitProfitCapturePct` **then** the P&L guard estimates total fees (entry fees from position + estimated exit fees using `FinancialMath.calculateTakerFeeRate()`) and checks `rawMtmPnl - estimatedTotalFees > 0`. If post-fee P&L <= 0, condition returns false (falls through to other exit triggers).
+
+2. **Given** estimated exit fees in the P&L guard **then** uses the same fee estimation pattern as `calculateUnrealizedPnl()` in `backtest-portfolio.service.ts:46-55` (existing implementation that already includes exit fee calculation).
+
+3. **Given** a position where raw mark-to-market P&L is positive but smaller than estimated total fees **when** PROFIT_CAPTURE is evaluated **then** it returns false and the position falls through to EDGE_EVAPORATION, TIME_DECAY, or STOP_LOSS as appropriate.
+
+4. **Given** `ExitEvaluationParams` **then** includes `entryFees` and `gasCost` from the position record (already available on `SimulatedPosition`).
+
+5. **Given** existing tests **when** all run **then** all pass. New tests: fee-aware guard rejects exit when raw P&L < total fees; fee-aware guard approves when raw P&L > total fees; guard correctly estimates exit fees using platform fee schedules; edge cases: zero fees, very small positions.
+
+**Tasks:**
+
+1. **Extend `ExitEvaluationParams`** — Add `entryFees: Decimal` and `gasCost: Decimal` (sourced from `SimulatedPosition`).
+
+2. **Make P&L guard fee-aware** — In `isProfitCaptureTriggered()`, after computing raw `mtmPnl`, estimate exit fees using `FinancialMath.calculateTakerFeeRate()` for both platforms (same pattern as `calculateUnrealizedPnl`). Check `mtmPnl - exitFees - entryFees - gasCost > 0`.
+
+3. **Pass position cost data to exit evaluator** — Ensure `evaluateExits()` call site passes entry fees and gas cost from the position.
+
+4. **Tests** — Verify: guard rejects when raw P&L positive but < fees; guard accepts when raw P&L > fees; fee estimation matches `calculateUnrealizedPnl` pattern; parametric tests across fee schedule ranges.
+
+**Technical Notes:**
+- `SimulatedPosition` already carries `entryFees` and `gasCost` (added in Story 10-95-9).
+- Exit fee estimation reuses `FinancialMath.calculateTakerFeeRate()` + `DEFAULT_KALSHI_FEE_SCHEDULE` / `DEFAULT_POLYMARKET_FEE_SCHEDULE` already imported in `backtest-portfolio.service.ts`.
+- No new dependencies. No Prisma changes.
+
+**Dependencies:** 10-95-12 complete. Independent of 10-95-13 (can be implemented in parallel).
+
+### Epic 10.96: Live Trading Engine Alignment & Configuration Calibration
+Port 5 backtest quality fixes (from stories 10-95-8 through 10-95-14) to the live trading engine and calibrate configuration defaults to backtest-validated settings. Live engine is disabled (early `return;` on line 65 of `trading-engine.service.ts`) — must not re-enable until 10.96 is complete.
+**FRs covered:** FR-AD-03 (edge threshold), FR-RM-01 (position sizing), FR-EM-01 (exit thresholds) — strengthens existing requirements
+**Course correction:** 2026-04-13 — backtest profitability analysis revealed 6 critical fixes exist only in backtest engine. Recalibrations: side selection bug (10-95-10) NOT in live (removed), edge formula (10-95-11) functionally correct in live (removed). 5 fixes to port across 4 stories.
+**Sprint Change Proposal:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-04-13-live-engine-alignment.md`
+
+**Prerequisites:** Epic 10.95 complete. Hard sequencing gate before Epic 11.
+
+## Epic 10.96: Live Trading Engine Alignment & Configuration Calibration
+
+Port backtest-validated fixes to the live trading engine. First porting story (10-96-1) establishes the backtest-to-live pattern; stories 10-96-2 and 10-96-3 follow the template. Winston's design sketches gate all feature stories.
+
+### Story 10-96-0: Structural Guards — configService Type Safety & Route Prefix Validation (Slot Zero)
+
+As an operator,
+I want configService.get() type-safety enforcement and route prefix validation as structural guards,
+So that two recurring defect classes (string-typed config values, missing route prefixes) are prevented at compile/startup time rather than caught in review.
+
+**Acceptance Criteria:**
+
+**Given** `configService.get<boolean>()` returns strings (NestJS behavior)
+**When** the structural guard is applied
+**Then** a typed config accessor pattern replaces raw `configService.get()` calls with explicit parsing
+**And** boolean/number env vars are parsed at the boundary, not trusted as generic types
+
+**Given** route prefixes can be omitted on new controllers
+**When** the structural guard is applied
+**Then** a startup validation check verifies all controllers have route prefixes
+**And** missing prefixes cause a startup error (fail-fast)
+
+**Given** the dashboard API client was generated before recent endpoint changes
+**When** this story completes
+**Then** the API client is regenerated via `swagger-typescript-api`
+
+**Context:** Agreement #26 items. Slipped Epics 10.9 and 10.95. Non-negotiable per Arbi directive (Agreement #34 slot-zero enforcement). Resolves debt ledger items #1, #2, #3.
+
+### Story 10-96-1: Entry-Fee-Aware Exit PnL & Percentage Stop-Loss
+
+As an operator,
+I want the live exit evaluation to account for entry fees and gas in PnL calculations, and to enforce a percentage-based stop-loss,
+So that PROFIT_CAPTURE exits are profitable after all costs and catastrophic positions are exited early.
+
+**Acceptance Criteria:**
+
+**Given** an open position with entry fee data (`entryKalshiFeeRate`, `entryPolymarketFeeRate`, `entryClosePriceKalshi`, `entryClosePricePolymarket`)
+**When** the threshold evaluator computes `currentPnl`
+**Then** `currentPnl = kalshiPnl + polymarketPnl - exitFees - entryFees - gasCost`
+
+**Given** `exitStopLossPct` config setting (default 0.20)
+**When** `currentPnl <= -exitStopLossPct × positionSizeUsd`
+**Then** a STOP_LOSS exit is triggered
+
+**Impacted files:** `threshold-evaluator.service.ts`, `exit-monitor.service.ts`, `config-defaults.ts`
+**Ports from:** 10-95-9 + 10-95-14
+**Backtest evidence:** Entry fees + gas = ~$800 invisible costs. Fee-unaware PROFIT_CAPTURE produced 81 losers. Two STOP_LOSS triggers prevented -$168 in catastrophic losses.
+**Design sketch required:** Winston provides implementation site and service boundary before ready-for-dev.
+
+### Story 10-96-2: Max Edge Cap & Entry Liquidity Filters
+
+As an operator,
+I want phantom edge signals and illiquid entries rejected before execution,
+So that the live engine doesn't trade on data anomalies or stale pricing.
+
+**Acceptance Criteria:**
+
+**Given** `maxEdgeThresholdPct` config setting (default 0.35)
+**When** `netEdge > maxEdgeThresholdPct`
+**Then** the opportunity is rejected as a phantom signal
+
+**Given** `minEntryPricePct` config setting (default 0.08)
+**When** either platform's price < threshold
+**Then** the opportunity is rejected
+
+**Given** `maxEntryPriceGapPct` config setting (default 0.20)
+**When** `|kalshiPrice - polymarketPrice| > threshold`
+**Then** the opportunity is rejected
+
+**Impacted files:** `edge-calculator.service.ts`, `trading-engine.service.ts`, `config-defaults.ts`
+**Ports from:** 10-95-8 + 10-95-13
+**Backtest evidence:** Phantom signals at 40%+ edge. Liquidity filters eliminated -$736 STOP_LOSS and -$1,338 diverged TIME_DECAY losses.
+**Design sketch required:** Winston provides entry filter pipeline service boundary.
+
+### Story 10-96-3: Post-TIME_DECAY Re-Entry Cooldown
+
+As an operator,
+I want the live engine to enforce a cooldown period after TIME_DECAY exits,
+So that toxic pairs aren't immediately re-entered.
+
+**Acceptance Criteria:**
+
+**Given** `timeDecayCooldownHours` config setting (default 24)
+**When** a position exits with reason TIME_DECAY
+**Then** the pair is blocked from re-entry for `timeDecayCooldownHours`
+
+**Given** a position exits with reason other than TIME_DECAY (PROFIT_CAPTURE, EDGE_EVAPORATION)
+**When** cooldown is checked
+**Then** the existing `pairCooldownMinutes` applies (shorter)
+
+**Impacted files:** `pair-concentration-filter.interface.ts`, `pair-concentration-filter.service.ts`, `exit-monitor.service.ts`, `config-defaults.ts`
+**Ports from:** 10-95-12
+**Backtest evidence:** TIME_DECAY exits average -$9.10 P&L and 93h hold. Without cooldown, engine re-enters same toxic pair immediately.
+**Design sketch required:** Winston provides cooldown-into-concentration-filter boundary.
+
+### Story 10-96-4: Configuration Defaults Calibration
+
+As an operator,
+I want configuration defaults updated to backtest-validated values,
+So that the live engine starts with settings proven to be profitable.
+
+**Acceptance Criteria:**
+
+**Given** the following config defaults exist in `config-defaults.ts`
+**When** this story is applied
+**Then** the values are updated:
+
+| Setting | Current | New | Rationale |
+|---------|---------|-----|-----------|
+| `detectionMinEdgeThreshold` | `'0.008'` | `'0.05'` | Below 5%, fee drag makes entries negative EV |
+| `detectionGasEstimateUsd` | `'0.30'` | `'0.50'` | Conservative estimate validated by backtest |
+| `riskMaxOpenPairs` | `10` | `25` | Phase 1 PRD spec (FR-RM-02) |
+| `exitProfitCaptureRatio` | `0.5` | `0.8` | 80% threshold validated — 100% win rate |
+| `pairCooldownMinutes` | `30` | `60` | Modest increase for generic cooldown |
+
+**Impacted files:** `config-defaults.ts`, DTO validation decorators if bounds need adjustment
+**Depends on:** 10-96-0, 10-96-1, 10-96-2, 10-96-3 (settings must exist before calibrating)
+**Backtest evidence:** Current defaults set during MVP before any backtest validation. Backtest profitable only after parameter tuning.
+
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07
 
-**Prerequisites (from Epic 10.5, 10.7, and 10.8):** Epic 10.5 stories 10-5-4 through 10-5-8, Epic 10.7, and Epic 10.8 must be complete before feature stories begin.
-**Note:** Epic 10.9 (backtesting calibration) has no architectural dependency on Epic 11. Current sequencing (10.9 → 11) is a focus preference, not a hard gate. Can be parallelized if capacity allows.
+**Prerequisites (from Epic 10.5, 10.7, 10.8, and 10.96):** Epic 10.5 stories 10-5-4 through 10-5-8, Epic 10.7, Epic 10.8, and Epic 10.96 must be complete before feature stories begin. Epic 10.96 is a hard sequencing gate — live engine must be aligned before extensibility work begins.
+**Note:** Epic 10.9 (backtesting calibration) has no architectural dependency on Epic 11. Current sequencing (10.9 → 11) is a focus preference, not a hard gate.
 **Tech debt to address in Epic 11 pre-epic:** ConfigModule extraction (Medium — DashboardModule 13 providers, ExecutionModule 15 providers), ConfigAccessor inconsistency (Low — 7+ services still using configService.get()).
 
 ## Epic 10.8: God Object Decomposition & Structural Refactoring

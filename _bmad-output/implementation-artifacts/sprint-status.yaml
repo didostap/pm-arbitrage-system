@@ -1,5 +1,5 @@
 # generated: 2026-03-26T00:00:00Z
-# last_updated: 2026-04-04T00:00:00Z
+# last_updated: 2026-04-13T23:00:00Z
 # project: pm-arbitrage-system
 # project_key: NOKEY
 # tracking_system: file-system
@@ -279,12 +279,36 @@ development_status:
   # TimescaleDB extension provides hypertable partitioning, 90%+ compression, chunk-local indexes
   # Prisma compatible (hypertable creation via manual migration SQL, time_bucket via $queryRaw)
   # Prerequisites: Epic 10.9 complete, full pg_dump backup before migration
-  epic-10-95: backlog
-  10-95-1-timescaledb-extension-installation-proof-of-concept: backlog # Install extension, Docker image swap (postgres:16 → timescale/timescaledb-ha:pg16), convert historical_trades (5.9 GB) as validation, Prisma composite PK, drop unused indexes
-  10-95-2-hypertable-conversion-prices-depths: backlog # Convert historical_prices (180 GB) + historical_depths (151 GB), maintenance window required (2-4h), composite PKs, drop bloated indexes (76 GB)
-  10-95-3-compression-policies-retention-observability: backlog # Enable compression (segmentby platform/contract/source), 7-day policy, manual compress old chunks, retention policy (2yr prices, 1yr trades, 6mo depths — configurable via EngineConfig, non-negotiable defaults per 10.9 retro), dashboard storage stats section
-  10-95-4-backtest-engine-service-decomposition: backlog # Extract WalkForwardRoutingService + ChunkedDataLoadingService from BacktestEngineService (917 lines, 9 deps). Facade decomposition (10.8 playbook). Target: constructor ≤8 deps, facade <600 formatted lines. Added by 10.9 retro. Slippable to Epic 11 if correction buffer consumed.
-  epic-10-95-retrospective: optional
+  epic-10-95: done
+  10-95-1-timescaledb-extension-installation-proof-of-concept: done # Completed 2026-04-04. Install extension, Docker image swap (postgres:16 → timescale/timescaledb-ha:pg16.13-ts2.26.1-oss), convert historical_trades (5.9 GB) as validation, Prisma composite PK, drop unused indexes. Code review completed 2026-04-04: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 28 raw findings triaged to 0 intent-gap + 0 bad-spec + 2 patch + 5 defer + 21 reject. Both patches fixed: P-1 pinned Docker image tag, P-2 added aggregate/groupBy integration tests. 5 deferred (pre-existing): migration transaction timeout risk for 10-95-2, CREATE EXTENSION superuser requirement, dropped covering index perf monitoring, nullable external_trade_id dedup bypass, CI integration test gap. 3600 tests pass.
+  10-95-2-hypertable-conversion-prices-depths: done # Completed 2026-04-04. Convert historical_prices (180 GB) + historical_depths (151 GB) to hypertables, composite PKs, drop 3 bloated indexes (76 GB). Code review completed 2026-04-04: 3-layer adversarial (Blind Hunter only — Edge Case Hunter + Acceptance Auditor rate-limited, Auditor run inline), 15 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 2 defer + 12 reject. 2 deferred (pre-existing): migrate_data preservation untestable in CI, lock_timeout=0 indefinite hang risk (spec-mandated for maintenance window). 3618 tests pass.
+  10-95-3-compression-policies-retention-observability: done # Enable compression (segmentby platform/contract/source), 7-day policy, manual compress old chunks, retention policy (2yr prices, 1yr trades, 6mo depths — configurable via EngineConfig, non-negotiable defaults per 10.9 retro), dashboard storage stats section
+  10-95-4-backtest-engine-service-decomposition: done # Completed 2026-04-06. Decomposed BacktestEngineService (981→592 lines, 9→8 deps) into facade + ChunkedDataLoadingService (3 deps) + WalkForwardRoutingService (5 deps). Removed dead alignPrices, extracted persistence helper. Code review completed 2026-04-06: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 35 raw findings triaged to 4 patch + 1 bad-spec + 5 defer-fixed + 2 defer-preexisting + 9 reject. All 10 actionable findings fixed. 3638 tests pass (+27 from baseline).
+  10-95-5-backtest-performance-optimization: done # Completed 2026-04-07. Range-based depth pre-load, N+1 elimination, shared cross-chunk cache with configurable memory budget. Code review completed 2026-04-07: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 36 raw findings triaged to 0 intent-gap + 1 bad-spec + 4 patch + 3 defer + 19 reject. All 5 actionable findings fixed (P-1 dead code removal, P-2 currentWindowStart on failure, P-3 SystemHealthError, P-4 correlationId in logs, BS-1 headless mode documented). 3671 tests pass.
+  10-95-6-open-position-reporting: done # Completed 2026-04-07. Remove force-close at simulation end (closeRemainingPositions). Leave open positions unclosed, add blockedCapitalUsd/unrealizedPnlUsd/openPositionCount to BacktestRun, add Blocked Capital dashboard section. Fixes P&L statistics distortion. Course correction 2026-04-06. Code review completed 2026-04-07: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 30 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 1 defer-fixed + 21 reject. Defer fix: defensive warning comment on event emission race with destroyRun. 3669 tests pass.
+  10-95-7-backtest-position-detail-view: done # Completed 2026-04-07. Click-through detail view for backtest positions mirroring live PositionDetailPage. Entry/Exit/P&L/Strategy sections. New endpoint GET /backtesting/runs/:runId/positions/:positionId. 3 new tests (23 total controller tests). Code review completed 2026-04-07: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 38 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 1 defer + 29 reject. Defer: pre-existing dashboard-wide no frontend test infrastructure. Depends on 10-95-6. Course correction 2026-04-06.
+  10-95-8-backtest-zero-price-fee-fix: done # Completed 2026-04-08. SQL zero-price filter (k.close > 0, hp.close > 0), TS defense-in-depth guard with per-platform counters, exit fee deduction using FinancialMath.calculateTakerFeeRate(), edge cap (maxEdgeThresholdPct default 0.15), data quality metrics accumulated in portfolio + calibration report, dashboard card with warning banner >20%. Code review: 1 fix (reset() missing zero-exclusion fields), 3 rejected. 3706 tests pass (+15 from baseline).
+  10-95-9-backtest-exit-logic-pnl-fix: done # Course correction 2026-04-10: PROFIT_CAPTURE exit direction-blind (ALL 39 exits were losers), entry fees + gas missing from PnL (~$800 invisible costs), no mark-to-market stop-loss. Adds PnL guard to PROFIT_CAPTURE, entry fee/gas tracking, STOP_LOSS exit condition, min edge floor 3%. Story created 2026-04-10.
+  10-95-10-backtest-side-selection-depth-exit-fix: done # Course correction 2026-04-11: calculateBestEdge() always returns buySide='polymarket' (edgeA===edgeB due to commutative addition), 52/111 positions wrong direction (0% win rate, -$587.54). INSUFFICIENT_DEPTH exits on cache misses (78% of exits). Fixes side selection via price comparison and depth exit semantics. Story created 2026-04-11. Code review completed 2026-04-12: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 19 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 5 defer + 10 reject. All 5 deferred pre-existing issues fixed: D-1 one-sided depth OR, D-2 entryBuySide required, D-3 inferResolutionPrice symmetric, D-4 kalshiSide/polymarketSide typed, D-5 zero positionSizeUsd guard. 3747 tests pass.
+  10-95-11-backtest-edge-metric-realignment: done # Completed 2026-04-12. Fixed calculateBestEdge/calculateCurrentEdge from 1-K-P to |K-P| (PRD FR-AD-02). Fixed calculateNetEdge sellPrice from complement (1-P) to actual prices. Recalibrated edgeThresholdPct 0.03→0.05 (@Min 0.02→0.03), maxEdgeThresholdPct 0.15→0.40. Key finding: net edge is now direction-invariant (fee sum commutes with actual prices). 2 PRD regression tests added. 3727 tests pass (+2 from baseline). Code review completed 2026-04-12: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 19 raw findings triaged to 0 intent-gap + 0 bad-spec + 1 patch + 5 defer + 12 reject. Patch fixed: P-1 stale test title updated for |K-P| zero-edge condition. 5 deferred (pre-existing): D-1 hardcoded fallback duplicates DTO default, D-2 negative grossEdge unvalidated, D-3 negative positionSizeUsd unvalidated, D-4 price boundary validation missing in utils, D-5 abs() grossEdge vs FinancialMath docstring convention.
+  10-95-12-backtest-pair-reentry-cooldown: done # Completed 2026-04-12. Cooldown after TIME_DECAY exits prevents re-entry churning. Default = exitTimeLimitHours (72h), cooldownHours=0 disables. Map<string, Date> local to runSimulationLoop(), GC'd on return. Non-TIME_DECAY exits bypass cooldown. 15 new tests (5 DTO + 10 engine). Code review completed 2026-04-12: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 18 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 4 defer + 14 reject. 4 deferred (pre-existing): D-1 cooldown state lost across chunk boundaries, D-2 no @Max on cooldownHours, D-3 test helper untyped exitReason string, D-4 backtest-engine.service.ts ~764 lines (above 600 review trigger). 3763 tests pass (+15 from baseline).
+  10-95-13-backtest-entry-liquidity-filter: done # Completed 2026-04-12. Min price guard (default 5%, @Max(1)), price gap guard (default 25%), stop-loss validation range tightened @Min(0.05)/@Max(0.50), calibration report liquidity filter metrics. Fixes STOP_LOSS (-$736) and 58%+ diverged TIME_DECAY (-$1,338) from liquidity asymmetry (stale/flat one-sided pricing). Code review completed 2026-04-12: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 30 raw findings triaged to 0 intent-gap + 1 bad-spec + 1 patch + 8 defer + 15 reject. All 2 actionable findings fixed: BS-1 @Max(1) on minEntryPricePct + boundary test, P-1 calibration report assertion pinned defaults and all filter fields. 8 deferred (pre-existing): D-1 cooldown state lost across chunk boundaries, D-2 cooldownHours no @Max, D-3 detectOpportunities 14-param God method, D-4 duplicated ?? fallback defaults, D-5 setTimeout polling in tests, D-6 TIME_DECAY hardcoded string, D-7 no test for conditional liquidityFilter omission, D-8 WF sub-run filter counts unreported. 3793 tests pass (+30 from 10-95-12 baseline).
+  10-95-14-backtest-profit-capture-fee-aware-guard: done # Completed 2026-04-12. Fee-aware PROFIT_CAPTURE PnL guard: estimates exit fees (FinancialMath.calculateTakerFeeRate) + entry fees + gas before approving exit. postFeePnl.gt(0) replaces rawMtmPnl.gt(0). 5 new tests (+5 from baseline). 23/23 exit-evaluator tests pass. No interface/param changes. Code review completed 2026-04-12: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 14 raw findings triaged to 0 intent-gap + 0 bad-spec + 0 patch + 4 defer + 10 reject. 4 deferred (pre-existing): D-1 fee formula dimensional correctness unverified (consistent across 3 call sites), D-2 stop-loss raw PnL vs profit-capture post-fee PnL asymmetry (spec-excluded), D-3 calculateTakerFeeRate missing validateDecimalInput (NaN propagation), D-4 updateEquity() no fee deduction from unrealized PnL.
+  epic-10-95-retrospective: done # Completed 2026-04-13. Key insights: correction model scope classification failure (180% growth = 3 scopes in 1 epic), deferred debt ledger net +7 (6→13). New agreements: #31 mid-epic discovery split rule (3+ unplanned outside core → new epic number), #32 diagnostic sweep gate for cascading discoveries, #33 debt budget per epic (net zero or negative), #34 agreement enforcement at sprint planning slot zero. configService + route prefix guards promoted to 10.96 slot zero (non-negotiable). Previous retro follow-through: 3/6 completed, 2/6 not addressed (below 100% standard). 10.96 preparation locked: 8 critical items, 2 parallel, Winston's design sketches gate all feature stories.
+
+  # EPIC 10.96: Live Trading Engine Alignment & Configuration Calibration
+  # Course correction 2026-04-13: Backtest profitability analysis revealed 6 critical fixes (stories 10-95-8 through 10-95-14) exist only in backtest engine.
+  # Live engine disabled (return; on line 65 of trading-engine.service.ts) — must not re-enable until 10.96 complete.
+  # Recalibrations: side selection bug (10-95-10) NOT in live (removed from scope), edge formula (10-95-11) functionally correct in live (removed), exit fees partially present in live (entry fees missing).
+  # Prerequisites: Epic 10.95 complete. Hard sequencing gate before Epic 11.
+  # Sprint Change Proposal: _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-13-live-engine-alignment.md
+  epic-10-96: in-progress
+  10-96-0-structural-guards-configservice-route-prefix: backlog # SLOT ZERO (Agreement #34). configService.get type-safety structural guard + route prefix validation guard (Agreement #26, slipped 2 epics — non-negotiable per Arbi directive). Dashboard API client regeneration bundled. Resolves debt items #1, #2, #3.
+  10-96-1-entry-fee-aware-exit-pnl-and-percentage-stop-loss: backlog # Entry fee deduction in exit PnL (threshold-evaluator.service.ts) + percentage-based stop-loss (exitStopLossPct default 0.20). Ports backtest fixes 10-95-9 + 10-95-14 to live. Entry fee data exists on OpenPosition schema (rates + close-side prices).
+  10-96-2-max-edge-cap-and-entry-liquidity-filters: backlog # Max edge cap (maxEdgeThresholdPct default 0.35), min entry price (minEntryPricePct default 0.08), max entry price gap (maxEntryPriceGapPct default 0.20). Ports backtest fixes 10-95-8 + 10-95-13 to live detection pipeline.
+  10-96-3-post-time-decay-reentry-cooldown: backlog # TIME_DECAY-specific cooldown (timeDecayCooldownHours default 24). Extends pair concentration filter with exit reason context. Ports backtest fix 10-95-12 to live.
+  10-96-4-configuration-defaults-calibration: backlog # Update config-defaults.ts: detectionMinEdgeThreshold 0.008→0.05, detectionGasEstimateUsd 0.30→0.50, riskMaxOpenPairs 10→25, exitProfitCaptureRatio 0.5→0.8, pairCooldownMinutes 30→60. Depends on 10-96-1/2/3.
+  epic-10-96-retrospective: optional
 
   # EPIC 11: Platform Extensibility & Security Hardening (Phase 1)
   # Pre-epic stories (11-0-1 through 11-0-4) absorbed into Epic 10.5 (stories 10-5-4 through 10-5-8)
@@ -305,16 +329,35 @@ development_status:
   12-3-regulatory-keyword-monitoring-service: backlog
   epic-12-retrospective: optional
 
+# DEFERRED DEBT LEDGER (Agreement #33 — Murat owns tracking)
+# Budget: net zero or negative per epic. Large items (>1 story) promoted to explicit stories.
+# Baseline entering 10.96: 13 items. Items 1-3 resolved in slot zero. Exit target: ≤13.
+#
+# | # | Item | Severity | Sized | Status |
+# | 1 | configService.get type-safety guard | Medium | Small | → 10-96-0 (slot zero) |
+# | 2 | Route prefix validation guard | Medium | Small | → 10-96-0 (bundled) |
+# | 3 | Dashboard API client regeneration | Low | Trivial | → 10-96-0 (bundled) |
+# | 4 | ConfigModule extraction (DashboardModule 13, ExecutionModule 15 providers) | Medium | Medium (~1 story) | Backlog |
+# | 5 | ConfigAccessor inconsistency (7+ services using configService.get()) | Low | Small | Partially mitigated by #1 |
+# | 6 | Multi-partition API verification in spike checklist | Low | Small | Backlog |
+# | 7 | detectOpportunities() 14-parameter god method | Medium | Medium (~1 story) | Backlog |
+# | 8 | backtest-engine.service.ts ~764 lines (above 600 trigger) | Medium | Medium | Monitor — extract if touched |
+# | 9 | Cooldown state lost across chunk boundaries | Low | Small | Backlog |
+# | 10 | @Max on cooldownHours | Low | Trivial | Backlog |
+# | 11 | setTimeout-based test assertions (~20 tests) | Medium | Large | Backlog |
+# | 12 | Config source divergence (env vs DB settings) | Medium | Medium | Backlog |
+# | 13 | ExecutionService 1,024 lines / ExitMonitorService 914 lines | Monitor | Large | Reassess if touched |
+
 # SUMMARY STATISTICS:
 # Total Epics: 21 (includes Epic 4.5 validation sprint, Epic 5.5 paper trading, Epic 6.5 paper trading validation, Epic 7.5 position lifecycle, Epic 10.5 settings + structural guards, Epic 10.7 paper profitability, Epic 10.8 God Object decomposition, Epic 10.9 backtesting calibration, Epic 10.95 TimescaleDB migration)
-# Total Stories: 154 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike, +12 Epic 10.9 backtesting calibration incl. 10-9-1a-fix + 10-9-7 + 10-9-3a + 10-9-3b + 10-9-8 course corrections, +3 Epic 10.95 TimescaleDB migration course correction 2026-04-03)
-# Epics done: 18 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8, 10.9)
-# Epics in-progress: 0
-# Stories done: 154 (all done stories through Epic 10-9-8)
+# Total Stories: 158 (+3 pre-epic 10-0-1/10-0-2/10-0-3 from Epic 9 retro action items, +1 course correction 10-0-2a, +1 course correction 10-0-2b, +8 Epic 10.5 settings + retro, +9 Epic 10.7 profitability, +7 Epic 10.8 refactoring incl. 10-8-0 design spike, +12 Epic 10.9 backtesting calibration incl. 10-9-1a-fix + 10-9-7 + 10-9-3a + 10-9-3b + 10-9-8 course corrections, +3 Epic 10.95 TimescaleDB migration course correction 2026-04-03, +3 Epic 10.95 backtest quality course correction 2026-04-06, +1 Epic 10.96 slot-zero 10-96-0 structural guards)
+# Epics done: 19 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8, 10.9, 10.95)
+# Epics in-progress: 1 (10.96)
+# Stories done: 154 (all done stories through Epic 10.95)
 # Stories in-progress: 0
 # Stories ready-for-dev: 0
-# Stories backlog: 9 (Epic 10.95: 10-95-1, 10-95-2, 10-95-3; Epic 11: 11-1, 11-2, 11-3; Epic 12: 12-1, 12-2, 12-3)
+# Stories backlog: 11 (Epic 10.96: 10-96-0/1/2/3/4; Epic 11: 11-1/11-2/11-3; Epic 12: 12-1/12-2/12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
-# Retrospectives done: 17 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8)
+# Retrospectives done: 18 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8, 10.9, 10.95)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.9 done. Next: Epic 10.95 (TimescaleDB Migration — course correction 2026-04-03, 3 stories). Then: Epic 11 → 12.
+# CURRENT: Epic 10.95 done (14/14 stories, retro completed 2026-04-13). Epic 10.96 in-progress (5 stories: 1 slot-zero + 4 feature, all backlog). Then: Epic 10.96 retro → Epic 11 → 12.

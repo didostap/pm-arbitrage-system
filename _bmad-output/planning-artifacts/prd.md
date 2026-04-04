@@ -810,6 +810,8 @@ Functional requirements define the capabilities the system must provide, organiz
 
 **FR-AD-02 [MVP]:** System shall calculate expected edge for each opportunity accounting for platform fees, gas costs (Polymarket), and liquidity depth at execution prices.
 
+**Clarification CC 2026-04-11 — Side Selection Determinism:** The arbitrage direction (which platform to buy, which to sell) is deterministically derived from the price comparison: buy on the platform with the lower YES price, sell on the platform with the higher YES price. Side selection must never be fixed or defaulted — it must be recomputed per opportunity based on current prices. Incorrect side selection converts arbitrage into anti-arbitrage (guaranteed loss), which is functionally equivalent to the "directional exposure instead of arbitrage" risk identified in the risk matrix.
+
 **FR-AD-03 [MVP]:** System shall filter opportunities below minimum edge threshold (configurable, default: 0.8% net after all costs).
 
 **FR-AD-04 [MVP]:** Operator can manually approve contract matches flagged by system as requiring human verification (confidence score <85%).
@@ -882,7 +884,7 @@ Functional requirements define the capabilities the system must provide, organiz
 
 ### Exit Management
 
-**FR-EM-01 [MVP]:** System shall monitor open positions continuously and trigger exits based on fixed thresholds: take profit at 80% of initial edge captured, stop loss at 2× initial edge, time-based exit 48 hours before contract resolution.
+**FR-EM-01 [MVP]:** System shall monitor open positions continuously and trigger exits based on fixed thresholds: take profit at 80% of initial edge captured, stop loss at 2× initial edge, time-based exit 48 hours before contract resolution. **Clarification (CC 2026-04-10):** "80% of initial edge captured" measures edge convergence, but edge evaporation is direction-agnostic — adverse one-sided price movement can reduce the edge while the position is deeply unprofitable. Take-profit exit must additionally verify that the position's mark-to-market P&L is positive before triggering. This applies to both live exit monitoring and backtest exit evaluation.
 
 **FR-EM-02 [Phase 1]:** System shall continuously recalculate expected edge for open positions based on fee/slippage updates, liquidity depth changes, contract matching confidence evolution, and time to resolution.
 

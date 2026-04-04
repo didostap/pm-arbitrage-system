@@ -675,6 +675,10 @@ modules/monitoring/ (audit logs, Telegram alerts, dashboard events, compliance r
     │    ├── HistoricalDataService (ingest, normalize, persist to PostgreSQL)
     │    ├── MatchValidationService (cross-ref our matches vs OddsPipe/Predexon)
     │    ├── BacktestEngine (parameterized replay: detection + cost model + exits)
+    │    │   ├── ExitEvaluator: PROFIT_CAPTURE requires mtmPnl > 0 (edge convergence alone insufficient — CC 2026-04-10)
+    │    │   ├── PnL accounting: realizedPnl = legPnl - entryFees - exitFees - gas (full-cost, CC 2026-04-10)
+    │    │   ├── Side selection invariant: buySide determined by price comparison, not edge comparison (CC 2026-04-11)
+    │    │   └── Depth exit invariant: cache miss ≠ insufficient depth; only force-close on present-but-insufficient data (CC 2026-04-11)
     │    └── CalibrationReportService (metrics, CIs, sensitivity, walk-forward OOS)
     │    ↓
     │    persistence/ (BacktestRun records, historical data tables)
