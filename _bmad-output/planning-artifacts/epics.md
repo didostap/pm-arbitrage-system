@@ -3974,6 +3974,97 @@ So that the live engine starts with settings proven to be profitable.
 **Depends on:** 10-96-0, 10-96-1, 10-96-2, 10-96-3 (settings must exist before calibrating)
 **Backtest evidence:** Current defaults set during MVP before any backtest validation. Backtest profitable only after parameter tuning.
 
+### Story 10-96-7: DB Config Migration — Activate Calibrated Defaults
+
+As an operator,
+I want the engine_config DB row updated to match the backtest-validated defaults from 10-96-4,
+So that the 5% minimum edge threshold and 0.8 profit capture ratio are actually active in paper and live trading.
+
+**Acceptance Criteria:**
+
+**Given** the engine_config row has `detection_min_edge_threshold = 0.008`
+**When** the Prisma migration runs
+**Then** `detection_min_edge_threshold` is updated to `0.05`
+**And** `exit_profit_capture_ratio` is updated to `0.8`
+
+**Given** the seed script's idempotent design (only sets NULLs)
+**When** future config calibrations are needed
+**Then** a documented pattern exists for applying config value changes via Prisma migration SQL
+**And** the seed-config.ts header comment warns that changing defaults does NOT update existing DB rows
+
+**Given** the migration is applied
+**When** the engine starts
+**Then** `configAccessor.detectionMinEdgeThreshold` returns `0.05`
+**And** `configAccessor.exitProfitCaptureRatio` returns `0.8`
+**And** the dashboard Settings page reflects the new values
+
+**Impacted files:**
+- New: `prisma/migrations/<timestamp>_calibrate_config_defaults/migration.sql`
+- Modified: `prisma/seed-config.ts` (documentation only — header warning)
+
+**Context:** Gap-fill for 10-96-4. Code defaults are correct; DB was never updated because seed script is idempotent by design. Paper trading evidence: 11/16 positions entered below 5% edge = $207 of $347 total losses.
+**Sprint Change Proposal:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-04-16-paper-trading-profitability-fix.md`
+
+### Story 10-96-8: Edge-Evaporation Re-Entry Cooldown & Negative-Edge Immediate Exit
+
+As an operator,
+I want a specific re-entry cooldown after edge_evaporation exits and an immediate exit gate when the arbitrage edge has flipped negative,
+So that the engine stops repeatedly entering proven-losing pairs and doesn't hold positions where the arb has reversed.
+
+**Acceptance Criteria:**
+
+**Given** `edgeEvaporationCooldownHours` config setting (default 4)
+**When** a position exits with criterion `EDGE_EVAPORATION`
+**Then** the pair is blocked from re-entry for `edgeEvaporationCooldownHours`
+
+**Given** a position exits with a criterion other than EDGE_EVAPORATION or TIME_DECAY
+**When** cooldown is checked
+**Then** only the generic `pairCooldownMinutes` applies
+
+**Given** the pair-concentration-filter already queries `getLatestTimeDecayExitByPairIds`
+**When** this story is implemented
+**Then** a parallel `getLatestEdgeEvaporationExitByPairIds` repository method is added
+**And** the filter checks both cooldowns (TIME_DECAY and EDGE_EVAPORATION) for each pair
+
+**Given** an open position being evaluated by the threshold evaluator
+**When** `recalculatedEdge < 0` (arbitrage has reversed)
+**Then** an EDGE_EVAPORATION exit is triggered immediately, regardless of the dollar PnL threshold
+**And** the exit detail includes `"Edge reversed: recalculated edge negative"`
+
+**Given** `recalculatedEdge >= 0`
+**When** the evaluator runs
+**Then** the existing dollar-PnL-based edge evaporation logic applies (no change)
+
+**Impacted files:** `pair-concentration-filter.service.ts`, `pair-concentration-filter.interface.ts`, `threshold-evaluator.service.ts`, `config-defaults.ts`, `settings-metadata.ts`, `update-settings.dto.ts`, `prisma/schema.prisma`, `open-position.repository.ts`
+**Paper evidence:** KC/DET entered 4x at ~80-90 min intervals (-$61 total). Position `0afa4945` at -24.9% recalculated edge still open.
+
+### Story 10-96-9: Paper Trading Re-Verification Run (48h)
+
+As an operator,
+I want a 48-hour paper trading verification run after 10-96-7 and 10-96-8 are deployed,
+So that I can confirm the fixes produce structurally profitable behavior before enabling live trading.
+
+**Acceptance Criteria:**
+
+**Given** stories 10-96-7 and 10-96-8 are deployed
+**When** the engine runs in paper mode for 48 hours
+**Then** the following are verified via database queries:
+- Zero positions with `expected_edge < 0.05`
+- Zero positions with hold_time < 60s AND exit_criterion = EDGE_EVAPORATION
+- Max 1 entry per pair within 4h after edge_evap exit
+- Win rate > 30%
+- Zero open positions with `recalculated_edge < 0`
+
+**Given** the verification passes
+**When** all targets are met
+**Then** Epic 10.96 retro can proceed
+
+**Given** the verification fails on any target
+**When** results are analyzed
+**Then** a follow-up course correction is triggered
+
+**Depends on:** 10-96-7, 10-96-8
+
 ### Epic 11: Platform Extensibility & Security Hardening (Phase 1)
 System supports new platform connectors without core changes, external secrets management, and zero-downtime key rotation.
 **FRs covered:** FR-DI-05, FR-PI-06, FR-PI-07

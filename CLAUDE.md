@@ -335,7 +335,7 @@ When no ATDD checklist is provided, the dev agent derives the test plan from the
 ## Domain Rules
 
 - **Price normalization:** Internal = decimal probability (0.00-1.00). Kalshi uses cents (÷100). Polymarket already decimal.
-- **Edge calculation:** `|Price_A - Price_B| - fees - gas`. Minimum threshold: 0.8% net.
+- **Edge calculation:** `|Price_A - Price_B| - fees - gas`. Minimum threshold: 5% net.
 - **Single-leg exposure:** Detection within 5 seconds. Alert operator immediately with full context.
 - **Contract matching errors:** ZERO tolerance. Any matching error halts trading.
 - **Rate limits:** Stay under 70% of platform limits. 20% safety buffer on enforcement.

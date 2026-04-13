@@ -31,7 +31,7 @@ Architecturally, the FRs describe a real-time event pipeline: platform data feed
 - **Performance:** 500ms order book normalization (NFR-P1), 1s detection cycle (NFR-P2), <100ms between leg submissions (NFR-P3), 2s dashboard updates (NFR-P4)
 - **Security:** Environment-variable credentials evolving to secrets manager (NFR-S1), zero-downtime key rotation (NFR-S2), 7-year audit trail with complete trade records (NFR-S3), authenticated access (NFR-S4)
 - **Reliability:** 99% uptime during market hours (NFR-R1), per-platform graceful degradation (NFR-R2), 5s single-leg exposure timeout (NFR-R3), 30s platform health detection (NFR-R4), microsecond-timestamped persistence with 7-year retention (NFR-R5)
-- **Integration:** Defensive API parsing (NFR-I1), rate limit enforcement with 20% buffer (NFR-I2), auto-reconnecting WebSockets (NFR-I3), transaction confirmation handling (NFR-I4 — scoped to on-chain settlement in Epic 5; MVP order execution is off-chain CLOB for both platforms)
+- **Integration:** Defensive API parsing (NFR-I1), rate limit enforcement with 20% buffer (NFR-I2), auto-reconnecting WebSockets with configurable maxRetries (NFR-I3), transaction confirmation handling (NFR-I4 — scoped to on-chain settlement in Epic 5; MVP order execution is off-chain CLOB for both platforms)
 
 **Scale & Complexity:**
 
@@ -563,6 +563,12 @@ pm-arbitrage-engine/
 │   │       ├── polymarket-websocket.client.ts      # WebSocket connection management
 │   │       ├── polymarket-auth.service.ts         # SDK-based wallet auth (API key derivation)
 │   │       └── polymarket.types.ts                # Polymarket-specific types
+│   │   # Platform WebSocket Reconnection Policy:
+│   │   # maxRetries: 10 (default), exponential backoff (1s initial, 60s cap, 2x
+│   │   # multiplier with jitter). Persistent failures surface as `disconnected`
+│   │   # health via degradation protocol. Rationale: infinite retries with invalid
+│   │   # credentials create sustained CPU burn from RSA-PSS signature computation,
+│   │   # DNS/TLS negotiation, and timer churn.
 │   │   └── paper/
 │   │       ├── paper-trading.connector.ts         # IPlatformConnector decorator (wraps real connector)
 │   │       ├── fill-simulator.service.ts          # Simulated fill generation (per-platform params)
