@@ -1,5 +1,5 @@
 # generated: 2026-03-26T00:00:00Z
-# last_updated: 2026-04-13T23:00:00Z
+# last_updated: 2026-04-13T23:45:00Z
 # project: pm-arbitrage-system
 # project_key: NOKEY
 # tracking_system: file-system
@@ -303,7 +303,7 @@ development_status:
   # Prerequisites: Epic 10.95 complete. Hard sequencing gate before Epic 11.
   # Sprint Change Proposal: _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-13-live-engine-alignment.md
   epic-10-96: in-progress
-  10-96-0-structural-guards-configservice-route-prefix: backlog # SLOT ZERO (Agreement #34). configService.get type-safety structural guard + route prefix validation guard (Agreement #26, slipped 2 epics — non-negotiable per Arbi directive). Dashboard API client regeneration bundled. Resolves debt items #1, #2, #3.
+  10-96-0-structural-guards-configservice-route-prefix: done # Completed 2026-04-13. getConfigBoolean/getConfigNumber helpers, 12 boolean call site migrations (11 original + leg-sequencing.service.ts), 3 structural guard test suites (config type ban with broadened regex, env schema completeness with 17 allowlisted keys, route prefix validation), dashboard API client regenerated with type fixes. Resolves debt #1/#2/#3. 3825 tests pass (+27 from baseline). Code review: 3-layer adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor), 28 raw findings triaged to 0 intent-gap + 0 bad-spec + 3 patch + 5 defer + 20 reject. All 3 patches fixed: P-1 getConfigNumber Infinity/overflow rejection + 3 tests, P-2 guard regex broadened + leg-sequencing.service.ts migrated, P-3 csv-trade-log.service.ts === false → !csvEnabled. 5 deferred (pre-existing): D-1 getConfigBoolean case-sensitive, D-2 @Controller object syntax undetected, D-3 findTsFiles symlink risk, D-4 variable-key configService.get undetected, D-5 boolean-to-number coercion. # SLOT ZERO (Agreement #34).
   10-96-1-entry-fee-aware-exit-pnl-and-percentage-stop-loss: backlog # Entry fee deduction in exit PnL (threshold-evaluator.service.ts) + percentage-based stop-loss (exitStopLossPct default 0.20). Ports backtest fixes 10-95-9 + 10-95-14 to live. Entry fee data exists on OpenPosition schema (rates + close-side prices).
   10-96-2-max-edge-cap-and-entry-liquidity-filters: backlog # Max edge cap (maxEdgeThresholdPct default 0.35), min entry price (minEntryPricePct default 0.08), max entry price gap (maxEntryPriceGapPct default 0.20). Ports backtest fixes 10-95-8 + 10-95-13 to live detection pipeline.
   10-96-3-post-time-decay-reentry-cooldown: backlog # TIME_DECAY-specific cooldown (timeDecayCooldownHours default 24). Extends pair concentration filter with exit reason context. Ports backtest fix 10-95-12 to live.
@@ -355,9 +355,9 @@ development_status:
 # Epics in-progress: 1 (10.96)
 # Stories done: 154 (all done stories through Epic 10.95)
 # Stories in-progress: 0
-# Stories ready-for-dev: 0
-# Stories backlog: 11 (Epic 10.96: 10-96-0/1/2/3/4; Epic 11: 11-1/11-2/11-3; Epic 12: 12-1/12-2/12-3)
+# Stories ready-for-dev: 1 (10-96-0)
+# Stories backlog: 10 (Epic 10.96: 10-96-1/2/3/4; Epic 11: 11-1/11-2/11-3; Epic 12: 12-1/12-2/12-3)
 # Stories dropped: 2 (Epic 6.5 — superseded by organic bug-fix stories)
 # Retrospectives done: 18 (Epics 1-10, 4.5, 5.5, 7.5, 10.5, 10.7, 10.8, 10.9, 10.95)
 # MVP STATUS: COMPLETE — Dashboard delivered in Epic 7
-# CURRENT: Epic 10.95 done (14/14 stories, retro completed 2026-04-13). Epic 10.96 in-progress (5 stories: 1 slot-zero + 4 feature, all backlog). Then: Epic 10.96 retro → Epic 11 → 12.
+# CURRENT: Epic 10.95 done (14/14 stories, retro completed 2026-04-13). Epic 10.96 in-progress (5 stories: 1 slot-zero ready-for-dev + 4 feature backlog). Then: Epic 10.96 retro → Epic 11 → 12.
